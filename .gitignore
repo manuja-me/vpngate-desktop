@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cache files
+.vpngate_cache.json
+
+# Temporary installer files
+*.msi
+*.tmp
+
+# OpenVPN configurations and temporary auth
+*.ovpn
+*.txt
+!requirements.txt
+
+# Logs
+*.log
+
+# Environments and OS
+.env
+.venv
+env/
+venv/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
