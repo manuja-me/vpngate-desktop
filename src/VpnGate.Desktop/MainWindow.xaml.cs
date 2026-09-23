@@ -54,14 +54,16 @@ namespace VpnGate.Desktop
         {
             if (_openVpnService.IsEngineInstalled)
             {
-                TxtEngineStatus.Text = "✅ OpenVPN Engine Ready";
-                TxtEngineStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4ADE80"));
+                TxtEngineStatus.Text = "OpenVPN Ready";
+                TxtEngineIcon.Text = "●";
+                TxtEngineIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
                 BtnInstallEngine.Visibility = Visibility.Collapsed;
             }
             else
             {
-                TxtEngineStatus.Text = "⚠️ OpenVPN Not Detected";
-                TxtEngineStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FBBF24"));
+                TxtEngineStatus.Text = "OpenVPN Missing";
+                TxtEngineIcon.Text = "●";
+                TxtEngineIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
                 BtnInstallEngine.Visibility = Visibility.Visible;
             }
         }
@@ -74,6 +76,14 @@ namespace VpnGate.Desktop
             try
             {
                 _allServers = await _vpnService.FetchServersAsync(forceRefresh: true);
+
+                // Update KPI Dashboard Stats
+                TxtStatServers.Text = $"{_allServers.Count} Online";
+                TxtStatCountries.Text = $"{GetUniqueCountryCount()} Regions";
+                var maxSpeed = _allServers.Count > 0 ? _allServers.Max(s => s.SpeedMbps) : 0;
+                TxtStatTopSpeed.Text = $"{maxSpeed:F1} Mbps";
+                TxtCountryCount.Text = $"{GetUniqueCountryCount()} countries";
+
                 PopulateCountries();
                 ApplyFilters();
                 OnVpnLogReceived($"Loaded {_allServers.Count} live servers across {GetUniqueCountryCount()} countries.");
@@ -234,31 +244,39 @@ namespace VpnGate.Desktop
                     case VpnState.Connected:
                         _connectionStartTime = DateTime.UtcNow;
                         _durationTimer.Start();
-                        TxtStatusBadge.Text = "● Connected";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4ADE80"));
+                        TxtStatusDot.Text = "●";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
+                        TxtStatusBadge.Text = "Connected";
+                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
                         BtnConnect.Content = "🛑 Disconnect";
-                        BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DC2626"));
+                        BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
                         BtnConnect.IsEnabled = true;
                         break;
 
                     case VpnState.Connecting:
-                        TxtStatusBadge.Text = "⏳ Connecting...";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FBBF24"));
+                        TxtStatusDot.Text = "●";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
+                        TxtStatusBadge.Text = "Connecting...";
+                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
                         BtnConnect.Content = "Connecting...";
                         BtnConnect.IsEnabled = false;
                         break;
 
                     case VpnState.Disconnecting:
-                        TxtStatusBadge.Text = "⏳ Disconnecting...";
+                        TxtStatusDot.Text = "●";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
+                        TxtStatusBadge.Text = "Disconnecting...";
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
                         BtnConnect.IsEnabled = false;
                         break;
 
                     case VpnState.Error:
                         _durationTimer.Stop();
-                        TxtDuration.Text = string.Empty;
-                        TxtStatusBadge.Text = "⚠️ Error";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F87171"));
+                        TxtDuration.Text = "00:00:00";
+                        TxtStatusDot.Text = "●";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
+                        TxtStatusBadge.Text = "Error";
+                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
                         BtnConnect.Content = "⚡ Retry Connect";
                         BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
                         BtnConnect.IsEnabled = _selectedServer != null;
@@ -266,8 +284,10 @@ namespace VpnGate.Desktop
 
                     case VpnState.Disconnected:
                         _durationTimer.Stop();
-                        TxtDuration.Text = string.Empty;
-                        TxtStatusBadge.Text = "● Disconnected";
+                        TxtDuration.Text = "00:00:00";
+                        TxtStatusDot.Text = "●";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#64748B"));
+                        TxtStatusBadge.Text = "Disconnected";
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
                         BtnConnect.Content = "⚡ Connect";
                         BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
