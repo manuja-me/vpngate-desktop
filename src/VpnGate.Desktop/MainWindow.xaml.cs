@@ -23,7 +23,6 @@ namespace VpnGate.Desktop
         private string _selectedCountry = "All";
         private string _currentSort = "speed";
         private DateTime? _connectionStartTime;
-        private bool _isLogsExpanded = true;
 
         public MainWindow()
         {
@@ -248,8 +247,9 @@ namespace VpnGate.Desktop
                         TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
                         TxtStatusBadge.Text = "Connected";
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
-                        BtnConnect.Content = "🛑 Disconnect";
-                        BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
+                        BtnConnect.Content = "🛑 Disconnect from Relay";
+                        try { BtnConnect.Background = (LinearGradientBrush)FindResource("DisconnectBtnGradient"); } catch { }
+                        if (BtnGlowEffect != null) BtnGlowEffect.Color = (Color)ColorConverter.ConvertFromString("#DC2626");
                         BtnConnect.IsEnabled = true;
                         break;
 
@@ -278,7 +278,8 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Text = "Error";
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
                         BtnConnect.Content = "⚡ Retry Connect";
-                        BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
+                        try { BtnConnect.Background = (LinearGradientBrush)FindResource("ConnectBtnGradient"); } catch { }
+                        if (BtnGlowEffect != null) BtnGlowEffect.Color = (Color)ColorConverter.ConvertFromString("#2563EB");
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
 
@@ -289,8 +290,9 @@ namespace VpnGate.Desktop
                         TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#64748B"));
                         TxtStatusBadge.Text = "Disconnected";
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
-                        BtnConnect.Content = "⚡ Connect";
-                        BtnConnect.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2563EB"));
+                        BtnConnect.Content = "⚡ Connect to Relay";
+                        try { BtnConnect.Background = (LinearGradientBrush)FindResource("ConnectBtnGradient"); } catch { }
+                        if (BtnGlowEffect != null) BtnGlowEffect.Color = (Color)ColorConverter.ConvertFromString("#2563EB");
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
                 }
@@ -340,20 +342,48 @@ namespace VpnGate.Desktop
 
         private void BtnClearLogs_Click(object sender, RoutedEventArgs e) => TxtLogs.Clear();
 
-        private void BtnToggleLogs_Click(object sender, RoutedEventArgs e)
+        private void BtnExportLogs_Click(object sender, RoutedEventArgs e)
         {
-            if (_isLogsExpanded)
+            try
             {
-                TxtLogs.Visibility = Visibility.Collapsed;
-                BtnToggleLogs.Content = "▼ Expand";
-                _isLogsExpanded = false;
+                Clipboard.SetText(TxtLogs.Text);
+                MessageBox.Show("OpenVPN tunnel output copied to clipboard!", "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            else
+            catch (Exception ex)
             {
-                TxtLogs.Visibility = Visibility.Visible;
-                BtnToggleLogs.Content = "▲ Collapse";
-                _isLogsExpanded = true;
+                MessageBox.Show($"Could not copy logs: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        // Window Caption Controls
+        private void BtnMinimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+        private void BtnMaximize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        }
+
+        private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+
+        // View Tabs
+        private void TabBtnServers_Click(object sender, RoutedEventArgs e)
+        {
+            TabBtnServers.IsChecked = true;
+            TabBtnDiagnostics.IsChecked = false;
+            TabBtnServers.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F8FAFC"));
+            TabBtnDiagnostics.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
+            ViewServers.Visibility = Visibility.Visible;
+            ViewDiagnostics.Visibility = Visibility.Collapsed;
+        }
+
+        private void TabBtnDiagnostics_Click(object sender, RoutedEventArgs e)
+        {
+            TabBtnServers.IsChecked = false;
+            TabBtnDiagnostics.IsChecked = true;
+            TabBtnServers.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
+            TabBtnDiagnostics.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F8FAFC"));
+            ViewServers.Visibility = Visibility.Collapsed;
+            ViewDiagnostics.Visibility = Visibility.Visible;
         }
     }
 }
