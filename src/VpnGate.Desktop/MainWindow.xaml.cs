@@ -107,7 +107,9 @@ namespace VpnGate.Desktop
 
         private void ApplyFilters()
         {
-            var search = TxtSearch.Text;
+            if (TxtSearch == null || LstServers == null) return;
+
+            var search = TxtSearch.Text ?? string.Empty;
             var filtered = VpnGateService.FilterAndSort(_allServers, search, _selectedCountry, _currentSort);
             LstServers.ItemsSource = filtered;
 
@@ -136,7 +138,7 @@ namespace VpnGate.Desktop
 
         private void LstCountries_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (LstCountries.SelectedItem is string item)
+            if (LstCountries?.SelectedItem is string item)
             {
                 if (item.StartsWith("🌍"))
                 {
@@ -160,9 +162,9 @@ namespace VpnGate.Desktop
 
         private void CmbSort_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (CmbSort.SelectedItem is ComboBoxItem item)
+            if (CmbSort?.SelectedItem is ComboBoxItem item)
             {
-                _currentSort = item.Content.ToString() switch
+                _currentSort = item.Content?.ToString() switch
                 {
                     "Lowest Ping" => "ping",
                     "Most Sessions" => "sessions",
