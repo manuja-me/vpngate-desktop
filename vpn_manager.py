@@ -115,16 +115,15 @@ class VpnManager:
             self._set_state(ConnectionState.ERROR, "Failed to decode OpenVPN profile.")
             return
 
-        # Ensure verbosity and credentials directive
+        # Strip problematic directives that cause escape errors or interactive prompts
         tweaked_lines = []
-        has_auth_user_pass = False
         for line in raw_config.splitlines():
-            if line.strip().startswith("auth-user-pass"):
-                has_auth_user_pass = True
+            line_s = line.strip()
+            if line_s == "auth-user-pass" or line_s.startswith("auth-user-pass "):
+                continue
+            if line_s == "persist-key":
+                continue
             tweaked_lines.append(line)
-
-        if not has_auth_user_pass:
-            tweaked_lines.append(f'auth-user-pass "{auth_path}"')
 
         with open(config_path, "w", encoding="utf-8") as f:
             f.write("\n".join(tweaked_lines))
@@ -133,17 +132,17 @@ class VpnManager:
         self._stop_event.clear()
         self._monitor_thread = threading.Thread(
             target=self._run_openvpn_process,
-            args=(openvpn_bin, config_path, auth_path),
+            args=(openvpn_bin, self.temp_dir),
             daemon=True
         )
         self._monitor_thread.start()
 
-    def _run_openvpn_process(self, openvpn_bin: str, config_path: str, auth_path: str):
+    def _run_openvpn_process(self, openvpn_bin: str, temp_dir: str):
         """Worker thread to run OpenVPN and monitor logs."""
         cmd = [
             openvpn_bin,
-            "--config", config_path,
-            "--auth-user-pass", auth_path,
+            "--config", "profile.ovpn",
+            "--auth-user-pass", "auth.txt",
             "--verb", "3"
         ]
 
@@ -152,9 +151,10 @@ class VpnManager:
             creation_flags = subprocess.CREATE_NO_WINDOW
 
         try:
-            self._log(f"Spawning OpenVPN engine: {' '.join(cmd[:2])} ...")
+            self._log(f"Spawning OpenVPN engine: {openvpn_bin} ...")
             self.process = subprocess.Popen(
                 cmd,
+                cwd=temp_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
