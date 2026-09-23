@@ -69,16 +69,16 @@ namespace VpnGate.Desktop
         {
             if (_openVpnService.IsEngineInstalled)
             {
-                TxtEngineStatus.Text = "OpenVPN Ready";
+                TxtEngineStatus.Text = "READY";
                 TxtEngineIcon.Text = "●";
-                TxtEngineIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
+                TxtEngineIcon.Foreground = Brushes.White;
                 BtnInstallEngine.Visibility = Visibility.Collapsed;
             }
             else
             {
-                TxtEngineStatus.Text = "OpenVPN Missing";
-                TxtEngineIcon.Text = "●";
-                TxtEngineIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
+                TxtEngineStatus.Text = "MISSING";
+                TxtEngineIcon.Text = "○";
+                TxtEngineIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#737373"));
                 BtnInstallEngine.Visibility = Visibility.Visible;
             }
         }
@@ -136,7 +136,7 @@ namespace VpnGate.Desktop
                 .Select(g => $"{g.First().Flag}  {g.Key} ({g.Count()})")
                 .ToList();
 
-            countries.Insert(0, $"🌍  All ({_allServers.Count})");
+            countries.Insert(0, $"ALL ({_allServers.Count})");
 
             LstCountries.ItemsSource = countries;
 
@@ -172,7 +172,7 @@ namespace VpnGate.Desktop
             {
                 _selectedServer = server;
                 TxtSelectedTitle.Text = $"{server.Flag} {server.CountryLong}";
-                TxtSelectedDetails.Text = $"IP: {server.IP}:{server.Port} • Speed: {server.SpeedMbps:F1} Mbps • Ping: {server.Ping} ms";
+                TxtSelectedDetails.Text = $"{server.IP}:{server.Port} • {server.SpeedMbps:F1} Mbps • {server.Ping} ms • {server.Proto}";
 
                 BtnExport.IsEnabled = true;
                 if (_openVpnService.State == VpnState.Disconnected)
@@ -186,19 +186,16 @@ namespace VpnGate.Desktop
         {
             if (LstCountries?.SelectedItem is string item)
             {
-                if (item.StartsWith("🌍"))
+                if (item.StartsWith("ALL", StringComparison.OrdinalIgnoreCase) || item.StartsWith("🌍"))
                 {
                     _selectedCountry = "All";
                 }
                 else
                 {
                     var parts = item.Split("  ");
-                    if (parts.Length > 1)
-                    {
-                        var name = parts[1];
-                        var idx = name.LastIndexOf('(');
-                        _selectedCountry = (idx > 0 ? name[..idx] : name).Trim();
-                    }
+                    var name = parts.Length > 1 ? parts[1] : parts[0];
+                    var idx = name.LastIndexOf('(');
+                    _selectedCountry = (idx > 0 ? name[..idx] : name).Trim();
                 }
                 ApplyFilters();
             }
@@ -285,52 +282,58 @@ namespace VpnGate.Desktop
                         _connectionStartTime = DateTime.UtcNow;
                         _durationTimer.Start();
                         TxtStatusDot.Text = "●";
-                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
-                        TxtStatusBadge.Text = "Connected";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
-                        BtnConnect.Content = "🛑 Disconnect from Relay";
-                        try { BtnConnect.Background = (LinearGradientBrush)FindResource("DisconnectBtnGradient"); } catch { }
+                        TxtStatusDot.Foreground = Brushes.White;
+                        TxtStatusBadge.Text = "CONNECTED";
+                        TxtStatusBadge.Foreground = Brushes.White;
+                        BtnConnect.Content = "■ DISCONNECT FROM RELAY";
+                        BtnConnect.Background = Brushes.Black;
+                        BtnConnect.Foreground = Brushes.White;
+                        BtnConnect.BorderBrush = Brushes.White;
                         BtnConnect.IsEnabled = true;
                         break;
 
                     case VpnState.Connecting:
-                        TxtStatusDot.Text = "●";
-                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
-                        TxtStatusBadge.Text = "Connecting...";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
-                        BtnConnect.Content = "Connecting...";
+                        TxtStatusDot.Text = "◌";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#A3A3A3"));
+                        TxtStatusBadge.Text = "CONNECTING...";
+                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#A3A3A3"));
+                        BtnConnect.Content = "CONNECTING...";
                         BtnConnect.IsEnabled = false;
                         break;
 
                     case VpnState.Disconnecting:
-                        TxtStatusDot.Text = "●";
-                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
-                        TxtStatusBadge.Text = "Disconnecting...";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
+                        TxtStatusDot.Text = "◌";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#737373"));
+                        TxtStatusBadge.Text = "DISCONNECTING...";
+                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#737373"));
                         BtnConnect.IsEnabled = false;
                         break;
 
                     case VpnState.Error:
                         _durationTimer.Stop();
                         TxtDuration.Text = "00:00:00";
-                        TxtStatusDot.Text = "●";
-                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
-                        TxtStatusBadge.Text = "Error";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
-                        BtnConnect.Content = "⚡ Retry Connect";
-                        try { BtnConnect.Background = (LinearGradientBrush)FindResource("ConnectBtnGradient"); } catch { }
+                        TxtStatusDot.Text = "✕";
+                        TxtStatusDot.Foreground = Brushes.White;
+                        TxtStatusBadge.Text = "ERROR";
+                        TxtStatusBadge.Foreground = Brushes.White;
+                        BtnConnect.Content = "⚡ RETRY CONNECT";
+                        BtnConnect.Background = Brushes.White;
+                        BtnConnect.Foreground = Brushes.Black;
+                        BtnConnect.BorderBrush = Brushes.White;
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
 
                     case VpnState.Disconnected:
                         _durationTimer.Stop();
                         TxtDuration.Text = "00:00:00";
-                        TxtStatusDot.Text = "●";
-                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#64748B"));
-                        TxtStatusBadge.Text = "Disconnected";
-                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
-                        BtnConnect.Content = "⚡ Connect to Relay";
-                        try { BtnConnect.Background = (LinearGradientBrush)FindResource("ConnectBtnGradient"); } catch { }
+                        TxtStatusDot.Text = "○";
+                        TxtStatusDot.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#737373"));
+                        TxtStatusBadge.Text = "DISCONNECTED";
+                        TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#A3A3A3"));
+                        BtnConnect.Content = "⚡ CONNECT TO RELAY";
+                        BtnConnect.Background = Brushes.White;
+                        BtnConnect.Foreground = Brushes.Black;
+                        BtnConnect.BorderBrush = Brushes.White;
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
                 }
@@ -412,8 +415,10 @@ namespace VpnGate.Desktop
         {
             TabBtnServers.IsChecked = true;
             TabBtnDiagnostics.IsChecked = false;
-            TabBtnServers.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F8FAFC"));
-            TabBtnDiagnostics.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
+            TabBtnServers.Background = Brushes.White;
+            TabBtnServers.Foreground = Brushes.Black;
+            TabBtnDiagnostics.Background = Brushes.Transparent;
+            TabBtnDiagnostics.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#737373"));
             ViewServers.Visibility = Visibility.Visible;
             ViewDiagnostics.Visibility = Visibility.Collapsed;
         }
@@ -422,8 +427,10 @@ namespace VpnGate.Desktop
         {
             TabBtnServers.IsChecked = false;
             TabBtnDiagnostics.IsChecked = true;
-            TabBtnServers.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
-            TabBtnDiagnostics.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F8FAFC"));
+            TabBtnServers.Background = Brushes.Transparent;
+            TabBtnServers.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#737373"));
+            TabBtnDiagnostics.Background = Brushes.White;
+            TabBtnDiagnostics.Foreground = Brushes.Black;
             ViewServers.Visibility = Visibility.Collapsed;
             ViewDiagnostics.Visibility = Visibility.Visible;
         }

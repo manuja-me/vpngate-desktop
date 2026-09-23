@@ -24,14 +24,14 @@ namespace VpnGate.Desktop.Models
 
         public string DisplayTitle => $"{Flag} {CountryLong}";
         public string DisplaySubtitle => $"{IP}:{Port} • {Proto} • {NumVpnSessions} sessions";
-        public string DisplaySpeed => $"⚡ {SpeedMbps:F1} Mbps";
-        public string DisplayPing => $"📶 {Ping} ms";
+        public string DisplaySpeed => $"{SpeedMbps:F1} Mbps";
+        public string DisplayPing => $"{Ping} ms";
 
         public string PingColor => Ping switch
         {
-            <= 60 => "#4ADE80",   // Green
-            <= 150 => "#FBBF24",  // Yellow/Orange
-            _ => "#F87171"        // Red
+            <= 60 => "#FFFFFF",
+            <= 150 => "#A3A3A3",
+            _ => "#737373"
         };
 
         public string GetDecodedConfig()
