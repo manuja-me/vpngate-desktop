@@ -27,3 +27,8 @@ venv/
 .idea/
 Thumbs.db
 Desktop.ini
+
+# .NET Build Output
+[Bb]in/
+[Oo]bj/
+

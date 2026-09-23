@@ -17,6 +17,7 @@ namespace VpnGate.Desktop
         private readonly VpnGateService _vpnService = new();
         private readonly OpenVpnService _openVpnService = new();
         private readonly DispatcherTimer _durationTimer = new();
+        private readonly DispatcherTimer _searchDebounceTimer = new();
 
         private List<VpnServer> _allServers = new();
         private VpnServer? _selectedServer;
@@ -34,9 +35,24 @@ namespace VpnGate.Desktop
             _durationTimer.Interval = TimeSpan.FromSeconds(1);
             _durationTimer.Tick += (_, _) => UpdateDurationTimer();
 
+            _searchDebounceTimer.Interval = TimeSpan.FromMilliseconds(120);
+            _searchDebounceTimer.Tick += (_, _) =>
+            {
+                _searchDebounceTimer.Stop();
+                ApplyFilters();
+            };
+
             Loaded += async (_, _) =>
             {
                 UpdateEngineStatus();
+
+                // Instantly load cached servers in <20ms for instant UI rendering
+                _allServers = _vpnService.LoadCachedServers();
+                if (_allServers.Count > 0)
+                {
+                    UpdateStatsAndFilters();
+                }
+
                 await RefreshServersAsync();
             };
 
@@ -75,21 +91,19 @@ namespace VpnGate.Desktop
             try
             {
                 _allServers = await _vpnService.FetchServersAsync(forceRefresh: true);
-
-                // Update KPI Dashboard Stats
-                TxtStatServers.Text = $"{_allServers.Count} Online";
-                TxtStatCountries.Text = $"{GetUniqueCountryCount()} Regions";
-                var maxSpeed = _allServers.Count > 0 ? _allServers.Max(s => s.SpeedMbps) : 0;
-                TxtStatTopSpeed.Text = $"{maxSpeed:F1} Mbps";
-                TxtCountryCount.Text = $"{GetUniqueCountryCount()} countries";
-
-                PopulateCountries();
-                ApplyFilters();
+                UpdateStatsAndFilters();
                 OnVpnLogReceived($"Loaded {_allServers.Count} live servers across {GetUniqueCountryCount()} countries.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to retrieve VPN Gate servers: {ex.Message}", "Network Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (_allServers.Count == 0)
+                {
+                    MessageBox.Show($"Failed to retrieve VPN Gate servers: {ex.Message}", "Network Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                else
+                {
+                    OnVpnLogReceived($"Warning: Network refresh failed ({ex.Message}), showing cached relay servers.");
+                }
             }
             finally
             {
@@ -98,10 +112,24 @@ namespace VpnGate.Desktop
             }
         }
 
+        private void UpdateStatsAndFilters()
+        {
+            TxtStatServers.Text = $"{_allServers.Count} Online";
+            TxtStatCountries.Text = $"{GetUniqueCountryCount()} Regions";
+            var maxSpeed = _allServers.Count > 0 ? _allServers.Max(s => s.SpeedMbps) : 0;
+            TxtStatTopSpeed.Text = $"{maxSpeed:F1} Mbps";
+            TxtCountryCount.Text = $"{GetUniqueCountryCount()} countries";
+
+            PopulateCountries();
+            ApplyFilters();
+        }
+
         private int GetUniqueCountryCount() => _allServers.Select(s => s.CountryLong).Distinct().Count();
 
         private void PopulateCountries()
         {
+            var previousSelection = _selectedCountry;
+
             var countries = _allServers
                 .GroupBy(s => s.CountryLong)
                 .OrderByDescending(g => g.Count())
@@ -111,7 +139,16 @@ namespace VpnGate.Desktop
             countries.Insert(0, $"🌍  All ({_allServers.Count})");
 
             LstCountries.ItemsSource = countries;
-            LstCountries.SelectedIndex = 0;
+
+            if (previousSelection != "All")
+            {
+                var matchIndex = countries.FindIndex(c => c.Contains(previousSelection, StringComparison.OrdinalIgnoreCase));
+                LstCountries.SelectedIndex = matchIndex >= 0 ? matchIndex : 0;
+            }
+            else
+            {
+                LstCountries.SelectedIndex = 0;
+            }
         }
 
         private void ApplyFilters()
@@ -167,7 +204,11 @@ namespace VpnGate.Desktop
             }
         }
 
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilters();
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _searchDebounceTimer.Stop();
+            _searchDebounceTimer.Start();
+        }
 
         private void CmbSort_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -249,7 +290,6 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
                         BtnConnect.Content = "🛑 Disconnect from Relay";
                         try { BtnConnect.Background = (LinearGradientBrush)FindResource("DisconnectBtnGradient"); } catch { }
-                        if (BtnGlowEffect != null) BtnGlowEffect.Color = (Color)ColorConverter.ConvertFromString("#DC2626");
                         BtnConnect.IsEnabled = true;
                         break;
 
@@ -279,7 +319,6 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#EF4444"));
                         BtnConnect.Content = "⚡ Retry Connect";
                         try { BtnConnect.Background = (LinearGradientBrush)FindResource("ConnectBtnGradient"); } catch { }
-                        if (BtnGlowEffect != null) BtnGlowEffect.Color = (Color)ColorConverter.ConvertFromString("#2563EB");
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
 
@@ -292,7 +331,6 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#94A3B8"));
                         BtnConnect.Content = "⚡ Connect to Relay";
                         try { BtnConnect.Background = (LinearGradientBrush)FindResource("ConnectBtnGradient"); } catch { }
-                        if (BtnGlowEffect != null) BtnGlowEffect.Color = (Color)ColorConverter.ConvertFromString("#2563EB");
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
                 }
@@ -301,8 +339,12 @@ namespace VpnGate.Desktop
 
         private void OnVpnLogReceived(string log)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
             {
+                if (TxtLogs.Text.Length > 80_000)
+                {
+                    TxtLogs.Text = TxtLogs.Text[^40_000..];
+                }
                 TxtLogs.AppendText(log + Environment.NewLine);
                 TxtLogs.ScrollToEnd();
             });

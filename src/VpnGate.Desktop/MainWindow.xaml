@@ -14,11 +14,10 @@
         FontFamily="Segoe UI Variable Display, Segoe UI, -apple-system, sans-serif"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextRenderingMode="ClearType"
-        WindowStyle="None"
-        AllowsTransparency="True">
+        WindowStyle="None">
 
     <WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="12"/>
+        <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -240,8 +239,8 @@
         </Style>
     </Window.Resources>
 
-    <!-- Master Window Container with Gradient & Rounded Corners -->
-    <Border Background="{StaticResource WindowBgGradient}" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="12">
+    <!-- Master Window Container with Gradient -->
+    <Border Background="{StaticResource WindowBgGradient}" BorderBrush="#1E293B" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="48"/> <!-- Custom Modern Title Bar -->
@@ -251,7 +250,7 @@
             <!-- ========================================================= -->
             <!-- 1. CUSTOM WINDOW TITLEBAR                                 -->
             <!-- ========================================================= -->
-            <Border Grid.Row="0" Background="#0A0E18" BorderBrush="#162033" BorderThickness="0,0,0,1" CornerRadius="12,12,0,0">
+            <Border Grid.Row="0" Background="#0A0E18" BorderBrush="#162033" BorderThickness="0,0,0,1">
                 <Grid Margin="14,0,10,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/> <!-- Logo & Brand -->
@@ -310,9 +309,6 @@
                     <DockPanel Grid.Column="0" Margin="0,0,14,0">
                         <!-- Hero Connection Centerpiece Box -->
                         <Border DockPanel.Dock="Top" Background="#0F172A" BorderBrush="#253554" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="20" Color="#000000" Opacity="0.45" Direction="270" ShadowDepth="4"/>
-                            </Border.Effect>
                             <StackPanel>
                                 <!-- Status Header & Digital Clock -->
                                 <Grid Margin="0,0,0,14">
@@ -335,11 +331,7 @@
                                 </Border>
 
                                 <!-- Hero Action Button (Connect / Disconnect) -->
-                                <Button x:Name="BtnConnect" Content="⚡ Connect to Relay" Style="{StaticResource PrimaryBtn}" Height="48" FontSize="15" FontWeight="Bold" IsEnabled="False" Click="BtnConnect_Click" Margin="0,0,0,10">
-                                    <Button.Effect>
-                                        <DropShadowEffect x:Name="BtnGlowEffect" BlurRadius="20" Color="#2563EB" Opacity="0.45" ShadowDepth="0"/>
-                                    </Button.Effect>
-                                </Button>
+                                <Button x:Name="BtnConnect" Content="⚡ Connect to Relay" Style="{StaticResource PrimaryBtn}" Height="48" FontSize="15" FontWeight="Bold" IsEnabled="False" Click="BtnConnect_Click" Margin="0,0,0,10"/>
 
                                 <!-- Export Profile Button -->
                                 <Button x:Name="BtnExport" Content="📁 Export .OVPN Profile" Style="{StaticResource SecondaryBtn}" Height="32" FontSize="11" IsEnabled="False" Click="BtnExport_Click"/>
@@ -451,8 +443,17 @@
                             <Button x:Name="BtnRefresh" Grid.Column="2" Content="🔄 Refresh" Style="{StaticResource SecondaryBtn}" Height="36" FontSize="12" Click="BtnRefresh_Click"/>
                         </Grid>
 
-                        <!-- Virtualized Server List -->
-                        <ListBox x:Name="LstServers" Grid.Row="2" Background="Transparent" BorderThickness="0" SelectionChanged="LstServers_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+                        <!-- High Performance Direct3D Virtualized Server List -->
+                        <ListBox x:Name="LstServers" Grid.Row="2" Background="Transparent" BorderThickness="0" 
+                                 SelectionChanged="LstServers_SelectionChanged" 
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingPanel.IsVirtualizing="True" 
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.ScrollUnit="Pixel"
+                                 VirtualizingPanel.CacheLength="10,10"
+                                 VirtualizingPanel.CacheLengthUnit="Item">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

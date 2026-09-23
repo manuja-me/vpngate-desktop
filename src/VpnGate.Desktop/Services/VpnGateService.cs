@@ -23,6 +23,20 @@ namespace VpnGate.Desktop.Services
             _cacheFile = Path.Combine(dir, "cache.csv");
         }
 
+        public List<VpnServer> LoadCachedServers()
+        {
+            if (File.Exists(_cacheFile))
+            {
+                try
+                {
+                    var raw = File.ReadAllText(_cacheFile);
+                    return ParseCsv(raw);
+                }
+                catch { }
+            }
+            return new List<VpnServer>();
+        }
+
         public async Task<List<VpnServer>> FetchServersAsync(bool forceRefresh = false)
         {
             string rawCsv = string.Empty;
@@ -171,12 +185,12 @@ namespace VpnGate.Desktop.Services
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var q = search.Trim().ToLowerInvariant();
-                query = query.Where(s => s.CountryLong.ToLowerInvariant().Contains(q) ||
-                                         s.CountryShort.ToLowerInvariant().Contains(q) ||
-                                         s.IP.Contains(q) ||
-                                         s.HostName.ToLowerInvariant().Contains(q) ||
-                                         s.Operator.ToLowerInvariant().Contains(q));
+                var q = search.Trim();
+                query = query.Where(s => s.CountryLong.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                         s.CountryShort.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                         s.IP.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                         s.HostName.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                                         s.Operator.Contains(q, StringComparison.OrdinalIgnoreCase));
             }
 
             return (sortBy.ToLowerInvariant() switch
