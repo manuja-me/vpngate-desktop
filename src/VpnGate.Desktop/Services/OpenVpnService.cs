@@ -1,0 +1,307 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using VpnGate.Desktop.Models;
+
+namespace VpnGate.Desktop.Services
+{
+    public enum VpnState
+    {
+        Disconnected,
+        Connecting,
+        Connected,
+        Disconnecting,
+        Error
+    }
+
+    public class OpenVpnService
+    {
+        private const string MsiDownloadUrl = "https://swupdate.openvpn.org/community/releases/OpenVPN-2.7.7-I001-amd64.msi";
+        private static readonly string[] SearchPaths = new[]
+        {
+            @"C:\Program Files\OpenVPN\bin\openvpn.exe",
+            @"C:\Program Files (x86)\OpenVPN\bin\openvpn.exe",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\OpenVPN\bin\openvpn.exe")
+        };
+
+        private Process? _process;
+        private string? _activeTempDir;
+
+        public VpnState State { get; private set; } = VpnState.Disconnected;
+        public VpnServer? CurrentServer { get; private set; }
+
+        public event Action<VpnState, string?>? StateChanged;
+        public event Action<string>? LogReceived;
+
+        public string? FindOpenVpnBinary()
+        {
+            foreach (var path in SearchPaths)
+            {
+                if (File.Exists(path)) return path;
+            }
+
+            // Check PATH environment variable
+            var envPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            foreach (var folder in envPath.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var candidate = Path.Combine(folder.Trim(), "openvpn.exe");
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            return null;
+        }
+
+        public bool IsEngineInstalled => FindOpenVpnBinary() != null;
+
+        public async Task ConnectAsync(VpnServer server)
+        {
+            if (State is VpnState.Connected or VpnState.Connecting) return;
+
+            var openvpnExe = FindOpenVpnBinary();
+            if (openvpnExe == null)
+            {
+                SetState(VpnState.Error, "OpenVPN engine not found. Please install OpenVPN first.");
+                return;
+            }
+
+            CurrentServer = server;
+            SetState(VpnState.Connecting);
+            Log($"Preparing tunnel for {server.Flag} {server.CountryLong} ({server.IP}:{server.Port})...");
+
+            try
+            {
+                // Create temp directory for this connection session
+                _activeTempDir = Path.Combine(Path.GetTempPath(), $"vpngate_{Guid.NewGuid():N}");
+                Directory.CreateDirectory(_activeTempDir);
+
+                var configPath = Path.Combine(_activeTempDir, "profile.ovpn");
+                var authPath = Path.Combine(_activeTempDir, "auth.txt");
+
+                // Write auth credentials (vpn / vpn)
+                await File.WriteAllTextAsync(authPath, "vpn\nvpn\n");
+
+                // Decode and sanitize config lines
+                var rawConfig = server.GetDecodedConfig();
+                if (string.IsNullOrWhiteSpace(rawConfig))
+                {
+                    SetState(VpnState.Error, "Failed to decode OpenVPN profile configuration.");
+                    return;
+                }
+
+                var sb = new StringBuilder();
+                using (var reader = new StringReader(rawConfig))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var trimmed = line.Trim();
+                        // Strip naked or conflicting auth-user-pass directives
+                        if (trimmed.Equals("auth-user-pass", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("auth-user-pass ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        // Strip deprecated persist-key directive
+                        if (trimmed.Equals("persist-key", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        sb.AppendLine(line);
+                    }
+                }
+
+                await File.WriteAllTextAsync(configPath, sb.ToString());
+
+                // Launch OpenVPN in working directory with relative paths (completely avoids backslash issues)
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = openvpnExe,
+                    Arguments = "--config profile.ovpn --auth-user-pass auth.txt --verb 3",
+                    WorkingDirectory = _activeTempDir,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+
+                _process.OutputDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) HandleProcessOutput(e.Data);
+                };
+                _process.ErrorDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) HandleProcessOutput(e.Data);
+                };
+
+                _process.Exited += (_, _) =>
+                {
+                    if (State != VpnState.Disconnecting && State != VpnState.Disconnected)
+                    {
+                        var code = _process?.ExitCode ?? 0;
+                        if (code != 0)
+                        {
+                            SetState(VpnState.Error, $"OpenVPN exited with error code {code}.");
+                        }
+                        else
+                        {
+                            SetState(VpnState.Disconnected);
+                        }
+                    }
+                    Cleanup();
+                };
+
+                Log($"Spawning OpenVPN engine: {openvpnExe} ...");
+                _process.Start();
+                _process.BeginOutputReadLine();
+                _process.BeginErrorReadLine();
+            }
+            catch (Exception ex)
+            {
+                SetState(VpnState.Error, ex.Message);
+                Cleanup();
+            }
+        }
+
+        private void HandleProcessOutput(string line)
+        {
+            Log(line);
+
+            if (line.Contains("Initialization Sequence Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                SetState(VpnState.Connected);
+                Log(">>> Tunnel Established! Internet traffic is now routed through VPN Gate.");
+            }
+            else if (line.Contains("AUTH_FAILED", StringComparison.OrdinalIgnoreCase))
+            {
+                SetState(VpnState.Error, "Authentication Failed.");
+            }
+            else if (line.Contains("Cannot resolve host", StringComparison.OrdinalIgnoreCase) ||
+                     line.Contains("Connection refused", StringComparison.OrdinalIgnoreCase))
+            {
+                SetState(VpnState.Error, "Server unreachable. Try another relay.");
+            }
+        }
+
+        public void Disconnect()
+        {
+            if (State == VpnState.Disconnected) return;
+
+            SetState(VpnState.Disconnecting);
+            Log("Stopping VPN tunnel and restoring system routing tables...");
+
+            try
+            {
+                if (_process != null && !_process.HasExited)
+                {
+                    // Force terminate process tree
+                    var killProc = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "taskkill",
+                        Arguments = $"/F /PID {_process.Id} /T",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    });
+                    killProc?.WaitForExit(3000);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Notice while stopping process: {ex.Message}");
+            }
+
+            Cleanup();
+            SetState(VpnState.Disconnected);
+            Log("VPN Disconnected.");
+        }
+
+        public async Task<bool> InstallEngineAsync(Action<string> statusCallback)
+        {
+            try
+            {
+                var tempMsi = Path.Combine(Path.GetTempPath(), "OpenVPN-Setup.msi");
+                statusCallback("Downloading official OpenVPN installer...");
+
+                using (var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) })
+                {
+                    var bytes = await http.GetByteArrayAsync(MsiDownloadUrl);
+                    await File.WriteAllBytesAsync(tempMsi, bytes);
+                }
+
+                statusCallback("Installing OpenVPN and Wintun driver (Accept UAC prompt)...");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "msiexec.exe",
+                    Arguments = $"/i \"{tempMsi}\" /quiet /norestart",
+                    Verb = "runas",
+                    UseShellExecute = true
+                };
+
+                var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    await proc.WaitForExitAsync();
+                    try { File.Delete(tempMsi); } catch { }
+                    return proc.ExitCode == 0 || proc.ExitCode == 3010;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                statusCallback($"Installation error: {ex.Message}");
+                return false;
+            }
+        }
+
+        public bool ExportConfig(VpnServer server, string destinationPath)
+        {
+            try
+            {
+                var cfg = server.GetDecodedConfig();
+                if (string.IsNullOrWhiteSpace(cfg)) return false;
+
+                var header = $"# ========================================================\n" +
+                             $"# VPN Gate Server: {server.CountryLong} ({server.IP})\n" +
+                             $"# Speed: {server.SpeedMbps:F1} Mbps | Ping: {server.Ping} ms\n" +
+                             $"# Credentials: Username='vpn', Password='vpn'\n" +
+                             $"# ========================================================\n\n";
+
+                File.WriteAllText(destinationPath, header + cfg, Encoding.UTF8);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void Cleanup()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(_activeTempDir) && Directory.Exists(_activeTempDir))
+                {
+                    Directory.Delete(_activeTempDir, true);
+                }
+            }
+            catch { }
+
+            _activeTempDir = null;
+            _process = null;
+        }
+
+        private void SetState(VpnState newState, string? message = null)
+        {
+            State = newState;
+            if (message != null) Log($"[{newState}] {message}");
+            StateChanged?.Invoke(newState, message);
+        }
+
+        private void Log(string message) => LogReceived?.Invoke(message);
+    }
+}

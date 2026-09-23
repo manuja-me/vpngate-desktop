@@ -23,14 +23,24 @@ A modern, native Windows desktop application that lets you browse, filter, and c
 
 ## 🚀 How to Run
 
-### Method 1: Double-Click Launcher
-Simply double-click **`run.bat`** (or **`run.pyw`** for a console-less experience).
+### 🔷 Method 1: C# / .NET 8 Native Executable (Recommended)
+This repository includes a compiled, native Windows desktop executable built on **C# & .NET 8 WPF**:
 
-### Method 2: Command Line
-Open PowerShell or Command Prompt in this folder:
-```powershell
-python app.py
-```
+* **One-Click:** Double-click **`Launch-VpnGate.bat`** (or directly run **`dist\VpnGate.Desktop.exe`**).
+* **To Rebuild from Source:** Run **`build.bat`** or:
+  ```powershell
+  dotnet publish src\VpnGate.Desktop\VpnGate.Desktop.csproj -c Release -o dist
+  ```
+
+---
+
+### 🐍 Method 2: Python / CustomTkinter Edition
+If you prefer running via Python:
+* Double-click **`run.bat`** (or **`run.pyw`** for console-less startup).
+* Or via terminal:
+  ```powershell
+  python app.py
+  ```
 
 ---
 
