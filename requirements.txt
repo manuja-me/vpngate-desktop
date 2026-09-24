@@ -1,4 +1,0 @@
-customtkinter>=6.0.0
-requests>=2.30.0
-pillow>=10.0.0
-darkdetect>=0.8.0

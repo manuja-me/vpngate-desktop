@@ -1,17 +1,21 @@
-# 🛡️ VPN Gate Studio • Desktop Edition for Windows
+# 🛡️ VPN Gate Studio • Windows Edition
 
-[![Windows Native](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-0078D6?logo=windows&logoColor=white)](https://github.com/manuja-me/vpngate-desktop)
-[![Target Framework](https://img.shields.io/badge/Framework-.NET%208.0%20WPF-512BD4?logo=dotnet&logoColor=white)](https://github.com/manuja-me/vpngate-desktop)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-0078D6?logo=windows&logoColor=white)](https://github.com/manuja-me/vpngate-desktop)
+[![Language](https://img.shields.io/badge/Language-Rust%202021-dea584?logo=rust&logoColor=white)](https://github.com/manuja-me/vpngate-desktop)
+[![UI Engine](https://img.shields.io/badge/UI-WebView2%20%2B%20Swiss%20Monochrome-000000?logo=html5&logoColor=white)](https://github.com/manuja-me/vpngate-desktop)
+[![Binary Size](https://img.shields.io/badge/Binary-2.6%20MB%20Standalone-success)](dist/VpnGate.exe)
+[![Memory](https://img.shields.io/badge/RAM-~35--45%20MB-blue)](dist/VpnGate.exe)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Direct3D%20Hardware%20Accelerated-success)](https://github.com/manuja-me/vpngate-desktop)
 
-A high-performance, modern Windows-native desktop application to browse, benchmark, filter, and connect to thousands of free, public relay servers worldwide provided by the **VPN Gate Academic Experiment Project (University of Tsukuba, Japan)**.
+An ultra-lightweight, high-performance Windows desktop application to browse, filter, benchmark, and connect to thousands of free, public relay servers worldwide provided by the **VPN Gate Academic Experiment Project (University of Tsukuba, Japan)**.
+
+Built in **Rust** with an evergreen **WebView2** frontend, featuring a pure **Swiss Minimalist Monochrome** aesthetic, 100% stable retained DOM layout (zero hover jitter), and robust native OpenVPN route orchestration.
 
 ---
 
 ## 🎯 Purpose of This App
 
-The primary goal of **VPN Gate Studio** is to bring the power of the worldwide academic VPN Gate network to everyday Windows users through a sleek, fast, one-click desktop client.
+The primary goal of **VPN Gate Studio** is to bring the power of the worldwide academic VPN Gate network to Windows users through a sleek, fast, one-click desktop client.
 
 ### 1. 🌐 Free, Account-Free Privacy & Anonymity
 * **Zero Subscriptions or Logins:** Connect to thousands of public volunteer-run relay servers across Japan, South Korea, the United States, Europe, and more at zero cost.
@@ -32,59 +36,56 @@ Traditionally, using VPN Gate requires either:
 
 ## ✨ Key Features
 
-- **High-Speed Direct3D GPU Composition:** Built on .NET 8 WPF with pure hardware-accelerated Direct3D rendering for butter-smooth 60–144 FPS UI performance.
-- **Hero Connection Centerpiece:** Instant 1-click **Connect / Disconnect** button, dynamic state transitions, live duration clock, and target relay summaries.
-- **Pixel-Based Virtualized Explorer:** Recycled visual element rendering effortlessly handles hundreds of live servers with zero scrolling lag or dropped frames.
-- **120ms Debounced Search & Instant Filtering:**
-  - Real-time search across Country, IP, Hostname, and Operator notes with zero memory allocation.
+- **Ultra-Lightweight & Fast:** 
+  - **2.62 MB standalone `.exe`** with zero external DLLs, Node.js, or .NET runtimes.
+  - **~35–45 MB total RAM footprint** (75% lighter than WPF, 80% lighter than Electron).
+  - Sub-50ms instant startup from local cache (`%LOCALAPPDATA%\VpnGateDesktop\cache.csv`).
+- **Swiss Minimalist Monochrome UI:**
+  - High-contrast, typography-driven black & white design inspired by Swiss international style.
+  - Crisp monospace telemetry (`Cascadia Code`, `Consolas`).
+  - **100% Layout Stability:** Retained DOM flexbox/grid layout eliminates coordinate oscillation and hover vibration.
+- **Hero Connection Centerpiece:** Instant 1-click **Connect / Disconnect** button, dynamic state transitions, live duration stopwatch, and target relay summaries.
+- **Instant Search & Multi-Criteria Sorting:**
+  - Filter by Country, IP, Hostname, or Operator notes.
   - Sort on demand by **Highest Speed (Mbps)**, **Lowest Latency (ms)**, **Most Active Sessions**, or **Score**.
-  - One-click geographic region filter showing server distribution by country.
-- **Embedded Engine Installer:** Detects if OpenVPN is present on your system and provides a 1-click silent automated installer directly inside the app.
-- **Live Diagnostics Terminal:** Built-in console tab to view real-time OpenVPN handshake progress, routing changes, and diagnostic logs with one-click clipboard copying.
+  - One-click geographic region filter pills showing live server distribution by country.
+- **Native OpenVPN Route & DNS Leak Protection:**
+  - Dynamic local TCP management socket (`--management 127.0.0.1 <port>`) with graceful SIGTERM teardown.
+  - Automated zombie route cleanup (`route.exe delete 0.0.0.0 mask 128.0.0.0` and PowerShell route table reset).
+  - Automated DNS cache flushing (`ipconfig /flushdns`) on connect and disconnect.
+- **Live Diagnostics Console:** Real-time terminal tab showing OpenVPN handshake progress, routing changes, and diagnostic logs with one-click clipboard copying.
 - **One-Click `.ovpn` Exporter:** Export any node's raw OpenVPN profile to disk for use on routers, mobile phones, or other devices.
-- **Sub-20ms Startup:** Automatically caches the relay directory to `%LOCALAPPDATA%\VpnGateDesktop\cache.csv` so the interface loads instantly upon opening, while silently refreshing the latest network state in the background.
+- **100% Offline Capable:** All HTML, CSS, and JS assets are embedded directly into the binary with zero CDN dependencies.
 
 ---
 
 ## 🚀 Getting Started
 
-### 🦀 Rust + WebView2 Studio Edition (Fastest, Lightest & Most Flexible)
+### 📦 Run the Precompiled Binary
 
-The ultra-lightweight, 2.6 MB native Rust edition uses Windows evergreen WebView2 for an agile, 100% layout-stable Swiss Minimalist Monochrome UI with native OpenVPN process management:
+The standalone Windows executable is located in the [`dist/`](dist/) folder:
 
-* **Precompiled Executable:** Double-click [`dist/VpnGate.Rust.exe`](dist/VpnGate.Rust.exe).
-* **RAM Footprint:** ~35–45 MB working set (75% lower than WPF, 80% lower than Electron).
-* **Zero Jitter / Zero Vibration:** Retained DOM flex/grid layout eliminates coordinate oscillation on hover.
-* **Build from Source:**
-  ```powershell
-  cd rust
-  cargo build --release
-  ```
+1. Download or clone this repository.
+2. Run **`dist\VpnGate.exe`**.
 
----
+### 🛠️ Build from Source
 
-### 🔷 Native Executable (.NET 8 WPF Alternative)
+Requirements:
+- **Rust 1.80+** (with Cargo)
+- **Windows 10 / 11** (WebView2 Runtime is built into Windows 10/11)
 
-The precompiled standalone Windows executable is included in the [`dist/`](dist/) folder:
+```powershell
+# Clone the repository
+git clone https://github.com/manuja-me/vpngate-desktop.git
+cd vpngate-desktop
 
-1. **Launch Immediately:**
-   Double-click **`Launch-VpnGate.bat`** (or run **`dist\VpnGate.Desktop.exe`** directly).
-2. **Rebuild from Source:**
-   Run **`build.bat`** or compile using the .NET 8 CLI:
-   ```powershell
-   dotnet publish src\VpnGate.Desktop\VpnGate.Desktop.csproj -c Release -o dist
-   ```
+# Run directly in development mode
+cargo run
 
----
-
-### 🐍 Python / CustomTkinter Edition (Alternative)
-
-If you prefer running the Python CustomTkinter implementation:
-* Double-click **`run.bat`** (or **`run.pyw`** for console-free background execution).
-* Or execute directly from your terminal:
-  ```powershell
-  python app.py
-  ```
+# Build optimized release binary
+cargo build --release
+# Output: target\release\vpngate.exe (2.6 MB)
+```
 
 ---
 
@@ -92,7 +93,6 @@ If you prefer running the Python CustomTkinter implementation:
 
 To tunnel Windows system traffic, an OpenVPN executable and virtual network adapter (TAP or Wintun) are required.
 
-* **In-App Installation (Easiest):** If OpenVPN is missing, the app will display an **Install** button on the title bar and prompt you to install it automatically with one click.
 * **1-Click Batch Script:** Double-click **`install_openvpn.bat`** in the repository root. It elevates with Windows UAC, downloads the official signed WiX MSI installer, and silently installs OpenVPN without prompts.
 * **Windows Package Manager (Winget):**
   ```powershell
@@ -101,7 +101,7 @@ To tunnel Windows system traffic, an OpenVPN executable and virtual network adap
 * **Manual Community Installer:** Download directly from [openvpn.net/community-downloads](https://openvpn.net/community-downloads/).
 
 > [!IMPORTANT]
-> **Administrator Privileges:** Redirecting Windows system network routing tables requires Administrator permissions. If prompted by Windows UAC, approve elevation to allow the tunnel adapter to route traffic.
+> **Administrator Privileges:** Redirecting Windows system network routing tables requires Administrator permissions. The app provides a one-click **USER MODE • CLICK TO ELEVATE** button on the header to restart with administrative privileges.
 
 ---
 
@@ -109,30 +109,21 @@ To tunnel Windows system traffic, an OpenVPN executable and virtual network adap
 
 ```
 vpngate-desktop/
-├── dist/                          # Compiled, production-ready Windows binaries
-│   ├── VpnGate.Rust.exe           # Standalone Rust + WebView2 executable (2.6 MB)
-│   └── VpnGate.Desktop.exe        # Standalone .NET 8 WPF executable
-├── rust/                          # Rust + WebView2 Studio Edition
-│   ├── src/                       # Native Rust backend (OpenVPN, VPNGate, IPC)
-│   ├── ui/                        # Swiss Monochrome HTML/CSS/JS frontend
-│   └── Cargo.toml                 # Cargo dependencies (wry, tao, ureq, serde)
-├── src/VpnGate.Desktop/           # C# .NET 8 WPF Studio Edition
-│   ├── Models/
-│   │   └── VpnServer.cs           # Server data model & formatting
-│   ├── Services/
-│   │   ├── VpnGateService.cs      # API fetcher, CSV parser, cache, sorting
-│   │   └── OpenVpnService.cs      # Tunnel lifecycle, route restorer, installer
-│   ├── MainWindow.xaml            # Hardware-accelerated Direct3D Dark Theme UI
-│   ├── MainWindow.xaml.cs         # Event handlers, search debounce, state machine
-│   └── VpnGate.Desktop.csproj     # Project manifest (net8.0-windows)
-├── ui/                            # Python CustomTkinter UI components
-├── app.py                         # Python CustomTkinter entry point
-├── vpngate_client.py              # Python API client & CSV parser
-├── vpn_manager.py                 # Python OpenVPN process controller
-├── Launch-VpnGate.bat             # 1-Click launcher for .NET 8 Native app
-├── build.bat                      # Build script for .NET 8 Desktop app
+├── dist/                          # Production executable
+│   └── VpnGate.exe                # Standalone native executable (2.6 MB)
+├── src/                           # Rust backend core engine
+│   ├── main.rs                    # WRY/Tao window, event loop & IPC bridge
+│   ├── openvpn.rs                 # OpenVPN management socket, routes & DNS
+│   ├── vpngate.rs                 # VPNGate API client, CSV cache & parser
+│   └── models.rs                  # Server data structures & serialization
+├── ui/                            # Swiss Monochrome frontend
+│   ├── index.html                 # Semantic structure & layout
+│   ├── style.css                  # Pure CSS stylesheet (zero external CDN)
+│   └── app.js                     # IPC communication & state management
+├── Cargo.toml                     # Rust package manifest & dependencies
+├── Cargo.lock                     # Locked dependency tree
 ├── install_openvpn.bat            # 1-Click silent automated OpenVPN installer
-├── run.bat                        # Launcher for Python edition
+├── .gitignore                     # Git ignore rules
 └── README.md                      # Project documentation
 ```
 

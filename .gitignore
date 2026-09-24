@@ -1,34 +1,22 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
 
-# Cache files
-.vpngate_cache.json
-
-# Temporary installer files
-*.msi
-*.tmp
-
-# OpenVPN configurations and temporary auth
+# OpenVPN configurations and temporary credentials
 *.ovpn
 *.txt
-!requirements.txt
+*.tmp
+*.msi
 
 # Logs
 *.log
 
-# Environments and OS
-.env
-.venv
-env/
-venv/
-.vscode/
+# Cache files
+.vpngate_cache.json
+
+# IDE / OS metadata
 .idea/
+.vscode/
 Thumbs.db
 Desktop.ini
-
-# .NET Build Output
-[Bb]in/
-[Oo]bj/
-
