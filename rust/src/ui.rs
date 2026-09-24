@@ -176,7 +176,7 @@ impl eframe::App for VpnGateApp {
             ctx.request_repaint_after(Duration::from_millis(250));
         }
 
-        // Top Navigation Bar
+        // 1. TOP MINIMALIST SWISS TITLEBAR
         egui::TopBottomPanel::top("top_bar")
             .frame(egui::Frame::NONE.fill(Color32::from_rgb(0, 0, 0)).stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31))))
             .show(ctx, |ui| {
@@ -198,7 +198,7 @@ impl eframe::App for VpnGateApp {
                         .stroke(Stroke::new(1.0_f32, Color32::from_rgb(40, 40, 40)))
                         .inner_margin(egui::Margin::symmetric(4, 1))
                         .show(ui, |ui| {
-                            ui.label(RichText::new("STUDIO / RUST").size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
+                            ui.label(RichText::new("STUDIO / MONO").size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
                         });
                     
                     ui.add_space(30.0);
@@ -269,121 +269,54 @@ impl eframe::App for VpnGateApp {
                 ui.add_space(8.0);
             });
 
-        // Bottom Action Dock
-        egui::TopBottomPanel::bottom("bottom_dock")
-            .frame(egui::Frame::NONE.fill(Color32::from_rgb(8, 8, 8)).stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31))))
+        // 2. BOTTOM MICRO-FOOTER BAR
+        egui::TopBottomPanel::bottom("footer")
+            .frame(egui::Frame::NONE.fill(Color32::from_rgb(0, 0, 0)).stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31))))
             .show(ctx, |ui| {
-                ui.add_space(10.0);
+                ui.add_space(5.0);
                 ui.horizontal(|ui| {
-                    ui.add_space(16.0);
+                    ui.add_space(14.0);
+                    ui.label(RichText::new("ENGINE: OPENVPN 2.6 • PROTOCOL: UDP/TCP • DRIVER: WINTUN").size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
 
-                    // Selected Server Info
-                    if let Some(ref server) = self.selected_server {
-                        ui.vertical(|ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(RichText::new(format!("{} {}", server.flag(), server.country_long)).size(13.0).strong().color(Color32::WHITE));
-                                ui.label(RichText::new(format!("• {}:{}", server.ip, server.port)).size(11.0).monospace().color(Color32::from_rgb(163, 163, 163)));
-                            });
-                            ui.horizontal(|ui| {
-                                ui.label(RichText::new(format!("{:.1} Mbps", server.speed_mbps)).size(10.0).monospace().color(Color32::WHITE));
-                                ui.label(RichText::new(format!("• {} ms", server.ping)).size(10.0).monospace().color(Color32::from_rgb(163, 163, 163)));
-                                ui.label(RichText::new(format!("• {} sessions", server.num_sessions)).size(10.0).monospace().color(Color32::from_rgb(115, 115, 115)));
-                                
-                                if let Some(dur) = self.openvpn.get_connection_duration() {
-                                    let secs = dur.as_secs();
-                                    let h = secs / 3600;
-                                    let m = (secs % 3600) / 60;
-                                    let s = secs % 60;
-                                    ui.label(RichText::new(format!("• UP: {:02}:{:02}:{:02}", h, m, s)).size(10.0).monospace().strong().color(Color32::WHITE));
-                                }
-                            });
-                        });
-                    } else {
-                        ui.label(RichText::new("SELECT A RELAY FROM THE TABLE TO CONNECT").size(11.0).monospace().color(Color32::from_rgb(115, 115, 115)));
-                    }
-
-                    // Action Buttons (Right)
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(16.0);
-
-                        let state = self.openvpn.get_state();
-                        let has_selection = self.selected_server.is_some();
-
-                        // Main Connect / Disconnect Action Button
-                        match state {
-                            VpnState::Connected => {
-                                let btn = egui::Button::new(
-                                    RichText::new("■ DISCONNECT FROM RELAY").size(12.0).strong().monospace().color(Color32::WHITE),
-                                )
-                                .fill(Color32::from_rgb(14, 14, 14))
-                                .stroke(Stroke::new(1.0_f32, Color32::WHITE))
-                                .min_size(Vec2::new(200.0, 32.0));
-
-                                if ui.add(btn).clicked() {
-                                    self.openvpn.disconnect();
-                                }
-                            }
-                            VpnState::Connecting => {
-                                let btn = egui::Button::new(
-                                    RichText::new("◌ CONNECTING...").size(12.0).strong().monospace().color(Color32::BLACK),
-                                )
-                                .fill(Color32::from_rgb(160, 160, 160))
-                                .min_size(Vec2::new(180.0, 32.0));
-                                ui.add_enabled(false, btn);
-                            }
-                            _ => {
-                                let btn = egui::Button::new(
-                                    RichText::new("⚡ CONNECT TO RELAY").size(12.0).strong().monospace().color(Color32::BLACK),
-                                )
-                                .fill(Color32::WHITE)
-                                .min_size(Vec2::new(180.0, 32.0));
-
-                                if ui.add_enabled(has_selection, btn).clicked() {
-                                    if !self.is_admin {
-                                        self.elevation_prompt_open = true;
-                                    } else if let Some(ref server) = self.selected_server {
-                                        if let Err(e) = self.openvpn.connect(server) {
-                                            self.logs.push(format!("[Error] Connect failed: {}", e));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Export Config Button
-                        let export_btn = egui::Button::new(
-                            RichText::new("EXPORT .OVPN").size(10.0).monospace().color(Color32::WHITE),
-                        )
-                        .fill(Color32::from_rgb(18, 18, 18))
-                        .stroke(Stroke::new(1.0_f32, Color32::from_rgb(45, 45, 45)))
-                        .min_size(Vec2::new(100.0, 32.0));
-
-                        if ui.add_enabled(has_selection, export_btn).clicked() {
-                            if let Some(ref server) = self.selected_server {
-                                let file_name = format!("vpngate_{}_{}.ovpn", server.country_short, server.ip);
-                                if let Some(path) = rfd::FileDialog::new().set_file_name(&file_name).add_filter("OpenVPN Config", &["ovpn"]).save_file() {
-                                    if let Err(e) = self.openvpn.export_config(server, &path) {
-                                        self.logs.push(format!("[Error] Export failed: {}", e));
-                                    } else {
-                                        self.logs.push(format!("[Export] Saved configuration to {}", path.display()));
-                                    }
-                                }
-                            }
-                        }
+                        ui.add_space(14.0);
+                        ui.label(RichText::new("ACADEMIC EXPERIMENT • UNIVERSITY OF TSUKUBA").size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
                     });
                 });
-                ui.add_space(10.0);
+                ui.add_space(5.0);
             });
 
-        // Main Center Content
-        egui::CentralPanel::default()
-            .frame(egui::Frame::NONE.fill(Color32::from_rgb(0, 0, 0)))
-            .show(ctx, |ui| {
-                match self.active_tab {
-                    ActiveTab::Relays => self.render_relays_view(ui),
-                    ActiveTab::Diagnostics => self.render_diagnostics_view(ui),
-                }
-            });
+        // 3. MAIN WORKSPACE
+        match self.active_tab {
+            ActiveTab::Relays => {
+                // Two-Column Layout: Left Hero Sidebar + Right Server Explorer
+                egui::SidePanel::left("left_hero_sidebar")
+                    .resizable(false)
+                    .exact_width(320.0)
+                    .frame(
+                        egui::Frame::NONE
+                            .fill(Color32::from_rgb(8, 8, 8))
+                            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31)))
+                            .inner_margin(16.0),
+                    )
+                    .show(ctx, |ui| {
+                        self.render_left_sidebar(ui);
+                    });
+
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::NONE.fill(Color32::from_rgb(0, 0, 0)))
+                    .show(ctx, |ui| {
+                        self.render_relays_table(ui);
+                    });
+            }
+            ActiveTab::Diagnostics => {
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::NONE.fill(Color32::from_rgb(0, 0, 0)))
+                    .show(ctx, |ui| {
+                        self.render_diagnostics_view(ui);
+                    });
+            }
+        }
 
         // Elevation Required Modal Window
         if self.elevation_prompt_open {
@@ -411,46 +344,305 @@ impl eframe::App for VpnGateApp {
 }
 
 impl VpnGateApp {
-    fn render_relays_view(&mut self, ui: &mut egui::Ui) {
-        // Stats & Filter Row
+    // =========================================================================
+    // LEFT HERO SIDEBAR (Original Two-Column Swiss Layout)
+    // =========================================================================
+    fn render_left_sidebar(&mut self, ui: &mut egui::Ui) {
+        // 1. Status Header
+        let state = self.openvpn.get_state();
+        let (dot, text, color) = match state {
+            VpnState::Connected => ("●", "CONNECTED", Color32::WHITE),
+            VpnState::Connecting => ("◌", "CONNECTING...", Color32::from_rgb(163, 163, 163)),
+            VpnState::Disconnecting => ("◌", "DISCONNECTING...", Color32::from_rgb(163, 163, 163)),
+            VpnState::Error => ("✖", "ERROR", Color32::WHITE),
+            VpnState::Disconnected => ("○", "DISCONNECTED", Color32::from_rgb(115, 115, 115)),
+        };
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(dot).size(11.0).color(color));
+            ui.label(RichText::new(text).size(11.0).monospace().strong().color(color));
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let dur_str = if let Some(dur) = self.openvpn.get_connection_duration() {
+                    let secs = dur.as_secs();
+                    format!("{:02}:{:02}:{:02}", secs / 3600, (secs % 3600) / 60, secs % 60)
+                } else {
+                    "00:00:00".to_string()
+                };
+
+                egui::Frame::NONE
+                    .fill(Color32::from_rgb(0, 0, 0))
+                    .stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31)))
+                    .inner_margin(egui::Margin::symmetric(6, 2))
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(dur_str).size(10.5).monospace().color(Color32::WHITE));
+                    });
+            });
+        });
+
+        ui.add_space(14.0);
+
+        // 2. Selected Target Node Box
+        egui::Frame::NONE
+            .fill(Color32::from_rgb(13, 13, 13))
+            .stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31)))
+            .inner_margin(12.0)
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.label(RichText::new("SELECTED TARGET").size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
+                ui.add_space(4.0);
+
+                if let Some(ref server) = self.selected_server {
+                    ui.label(RichText::new(format!("{} {}", server.flag(), server.country_long)).size(14.0).strong().color(Color32::WHITE));
+                    ui.add_space(2.0);
+                    ui.label(RichText::new(format!("{}:{} • {}", server.ip, server.port, server.proto)).size(10.0).monospace().color(Color32::from_rgb(163, 163, 163)));
+                    ui.add_space(8.0);
+
+                    // Hairline divider
+                    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 0.0, Color32::from_rgb(31, 31, 31));
+                    ui.add_space(8.0);
+
+                    ui.columns(2, |cols| {
+                        cols[0].vertical(|ui| {
+                            ui.label(RichText::new("SPEED").size(8.5).monospace().color(Color32::from_rgb(115, 115, 115)));
+                            ui.label(RichText::new(format!("{:.1} Mbps", server.speed_mbps)).size(11.0).monospace().strong().color(Color32::WHITE));
+                        });
+                        cols[1].vertical(|ui| {
+                            ui.label(RichText::new("LATENCY").size(8.5).monospace().color(Color32::from_rgb(115, 115, 115)));
+                            ui.label(RichText::new(format!("{} ms", server.ping)).size(11.0).monospace().strong().color(Color32::WHITE));
+                        });
+                    });
+                } else {
+                    ui.label(RichText::new("No Server Selected").size(14.0).strong().color(Color32::from_rgb(163, 163, 163)));
+                    ui.add_space(2.0);
+                    ui.label(RichText::new("Pick any node from the explorer to connect").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115)));
+                }
+            });
+
+        ui.add_space(12.0);
+
+        // 3. Main Action Buttons
+        let has_selection = self.selected_server.is_some();
+        match state {
+            VpnState::Connected => {
+                let btn = egui::Button::new(
+                    RichText::new("■ DISCONNECT FROM RELAY").size(11.5).strong().monospace().color(Color32::WHITE),
+                )
+                .fill(Color32::from_rgb(0, 0, 0))
+                .stroke(Stroke::new(1.0_f32, Color32::WHITE))
+                .min_size(Vec2::new(ui.available_width(), 42.0));
+
+                if ui.add(btn).clicked() {
+                    self.openvpn.disconnect();
+                }
+            }
+            VpnState::Connecting => {
+                let btn = egui::Button::new(
+                    RichText::new("◌ CONNECTING...").size(11.5).strong().monospace().color(Color32::BLACK),
+                )
+                .fill(Color32::from_rgb(160, 160, 160))
+                .min_size(Vec2::new(ui.available_width(), 42.0));
+                ui.add_enabled(false, btn);
+            }
+            VpnState::Disconnecting => {
+                let btn = egui::Button::new(
+                    RichText::new("◌ DISCONNECTING...").size(11.5).strong().monospace().color(Color32::WHITE),
+                )
+                .fill(Color32::from_rgb(30, 30, 30))
+                .min_size(Vec2::new(ui.available_width(), 42.0));
+                ui.add_enabled(false, btn);
+            }
+            _ => {
+                let btn = egui::Button::new(
+                    RichText::new("⚡ CONNECT TO RELAY").size(11.5).strong().monospace().color(Color32::BLACK),
+                )
+                .fill(if has_selection { Color32::WHITE } else { Color32::from_rgb(40, 40, 40) })
+                .min_size(Vec2::new(ui.available_width(), 42.0));
+
+                if ui.add_enabled(has_selection, btn).clicked() {
+                    if !self.is_admin {
+                        self.elevation_prompt_open = true;
+                    } else if let Some(ref server) = self.selected_server {
+                        if let Err(e) = self.openvpn.connect(server) {
+                            self.logs.push(format!("[Error] Connect failed: {}", e));
+                        }
+                    }
+                }
+            }
+        }
+
+        ui.add_space(8.0);
+
+        // 4. Export Profile Button
+        let export_btn = egui::Button::new(
+            RichText::new("EXPORT .OVPN PROFILE").size(10.0).monospace().color(if has_selection { Color32::from_rgb(200, 200, 200) } else { Color32::from_rgb(80, 80, 80) }),
+        )
+        .fill(Color32::from_rgb(0, 0, 0))
+        .stroke(Stroke::new(1.0_f32, Color32::from_rgb(31, 31, 31)))
+        .min_size(Vec2::new(ui.available_width(), 28.0));
+
+        if ui.add_enabled(has_selection, export_btn).clicked() {
+            if let Some(ref server) = self.selected_server {
+                let file_name = format!("vpngate_{}_{}.ovpn", server.country_short, server.ip);
+                if let Some(path) = rfd::FileDialog::new().set_file_name(&file_name).add_filter("OpenVPN Config", &["ovpn"]).save_file() {
+                    if let Err(e) = self.openvpn.export_config(server, &path) {
+                        self.logs.push(format!("[Error] Export failed: {}", e));
+                    } else {
+                        self.logs.push(format!("[Export] Saved configuration to {}", path.display()));
+                    }
+                }
+            }
+        }
+
+        ui.add_space(14.0);
+
+        // 5. Precompute Regions & KPIs to avoid borrow conflicts
+        let total_servers_count = self.all_servers.len();
+        let unique_country_count = {
+            let set: std::collections::HashSet<&str> = self.all_servers.iter().map(|s| s.country_long.as_str()).collect();
+            set.len()
+        };
+        let country_list: Vec<(String, String, usize)> = {
+            let mut country_counts: std::collections::HashMap<String, (String, usize)> = std::collections::HashMap::new();
+            for s in &self.all_servers {
+                let entry = country_counts.entry(s.country_long.clone()).or_insert((s.flag().to_string(), 0));
+                entry.1 += 1;
+            }
+            let mut list: Vec<(String, String, usize)> = country_counts
+                .into_iter()
+                .map(|(c, (f, count))| (c, f, count))
+                .collect();
+            list.sort_by(|a, b| b.2.cmp(&a.2));
+            list
+        };
+        let max_speed = self.all_servers.iter().map(|s| s.speed_mbps).fold(0.0, f64::max);
+
+        // Regions Header
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("REGIONS").size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new(format!("{} regions", unique_country_count)).size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
+            });
+        });
+
+        ui.add_space(6.0);
+
+        // 6. Middle Scrollable Regions List
+        let bottom_height = 105.0;
+        let regions_list_height = (ui.available_height() - bottom_height).max(70.0);
+        let mut new_country_selected = None;
+
+        egui::ScrollArea::vertical()
+            .max_height(regions_list_height)
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                // ALL option
+                let is_all = self.selected_country == "All";
+                let all_label = format!("ALL ({})", total_servers_count);
+                let btn = egui::Button::new(
+                    RichText::new(all_label)
+                        .size(10.5)
+                        .monospace()
+                        .color(if is_all { Color32::BLACK } else { Color32::from_rgb(200, 200, 200) }),
+                )
+                .fill(if is_all { Color32::WHITE } else { Color32::TRANSPARENT })
+                .stroke(Stroke::NONE)
+                .min_size(Vec2::new(ui.available_width(), 22.0));
+
+                if ui.add(btn).clicked() {
+                    new_country_selected = Some("All".to_string());
+                }
+
+                for (country, flag, count) in &country_list {
+                    let is_sel = &self.selected_country == country;
+                    let text = format!("{} {} ({})", flag, country, count);
+                    let btn = egui::Button::new(
+                        RichText::new(text)
+                            .size(10.5)
+                            .monospace()
+                            .color(if is_sel { Color32::BLACK } else { Color32::from_rgb(163, 163, 163) }),
+                    )
+                    .fill(if is_sel { Color32::WHITE } else { Color32::TRANSPARENT })
+                    .stroke(Stroke::NONE)
+                    .min_size(Vec2::new(ui.available_width(), 22.0));
+
+                    if ui.add(btn).clicked() {
+                        new_country_selected = Some(country.clone());
+                    }
+                }
+            });
+
+        if let Some(country) = new_country_selected {
+            self.selected_country = country;
+            self.update_filtered();
+        }
+
+        ui.add_space(8.0);
+
+        // 7. Bottom KPI Metrics Block
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
+        ui.painter().rect_filled(rect, 0.0, Color32::from_rgb(31, 31, 31));
+        ui.add_space(8.0);
+
+        let ram_mb = crate::openvpn::get_working_set_bytes() as f64 / (1024.0 * 1024.0);
+
+        let render_kpi = |ui: &mut egui::Ui, title: &str, value: &str| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(title).size(9.0).monospace().color(Color32::from_rgb(115, 115, 115)));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new(value).size(10.0).monospace().strong().color(Color32::WHITE));
+                });
+            });
+            ui.add_space(3.0);
+        };
+
+        render_kpi(ui, "ONLINE RELAYS", &format!("{} Relays", total_servers_count));
+        render_kpi(ui, "GLOBAL COVERAGE", &format!("{} Regions", unique_country_count));
+        render_kpi(ui, "MAX BANDWIDTH", &format!("{:.1} Mbps", max_speed));
+        render_kpi(ui, "RAM WORKING SET", &format!("{:.1} MB", ram_mb));
+    }
+
+    // =========================================================================
+    // RIGHT SERVER MATRIX & CONTROLS
+    // =========================================================================
+    fn render_relays_table(&mut self, ui: &mut egui::Ui) {
+        // 1. Controls Toolbar
         ui.add_space(10.0);
         ui.horizontal(|ui| {
-            ui.add_space(16.0);
+            ui.add_space(14.0);
 
-            // Metrics Summary
-            let unique_countries: std::collections::HashSet<_> = self.all_servers.iter().map(|s| &s.country_long).collect();
-            let max_speed = self.all_servers.iter().map(|s| s.speed_mbps).fold(0.0, f64::max);
+            // Minimalist Search Input
+            let search_width = (ui.available_width() - 250.0).max(180.0);
+            let search_box = egui::TextEdit::singleline(&mut self.search_query)
+                .hint_text("FILTER BY COUNTRY, IP, HOSTNAME...")
+                .desired_width(search_width);
+            if ui.add(search_box).changed() {
+                self.update_filtered();
+            }
 
-            ui.label(RichText::new(format!("{} ONLINE", self.all_servers.len())).size(11.0).monospace().color(Color32::WHITE));
-            ui.label(RichText::new("•").size(11.0).color(Color32::from_rgb(50, 50, 50)));
-            ui.label(RichText::new(format!("{} REGIONS", unique_countries.len())).size(11.0).monospace().color(Color32::from_rgb(163, 163, 163)));
-            ui.label(RichText::new("•").size(11.0).color(Color32::from_rgb(50, 50, 50)));
-            ui.label(RichText::new(format!("{:.1} Mbps PEAK", max_speed)).size(11.0).monospace().color(Color32::from_rgb(163, 163, 163)));
-            ui.label(RichText::new("•").size(11.0).color(Color32::from_rgb(50, 50, 50)));
-            let ram_mb = crate::openvpn::get_working_set_bytes() as f64 / (1024.0 * 1024.0);
-            ui.label(RichText::new(format!("{:.1} MB RAM", ram_mb)).size(11.0).monospace().color(Color32::from_rgb(163, 163, 163)));
-
-            // Filter Controls (Right-aligned)
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.add_space(16.0);
+                ui.add_space(14.0);
 
                 // Refresh Button
-                let refresh_text = if self.is_refreshing { "⏳ REFRESHING..." } else { "🔄 REFRESH" };
+                let refresh_text = if self.is_refreshing { "⏳ LOADING..." } else { "↻ REFRESH" };
                 if ui.button(RichText::new(refresh_text).size(10.0).monospace()).clicked() {
                     self.trigger_refresh(true);
                 }
 
+                ui.add_space(6.0);
+
                 // Sort Dropdown
-                egui::ComboBox::from_id_salt("sort_by")
+                egui::ComboBox::from_id_salt("table_sort_by")
                     .selected_text(match self.sort_by.as_str() {
                         "ping" => "Lowest Ping",
                         "sessions" => "Most Sessions",
                         "score" => "Highest Score",
-                        _ => "Fastest Speed",
+                        _ => "Highest Speed",
                     })
                     .show_ui(ui, |ui| {
                         let mut changed = false;
-                        changed |= ui.selectable_value(&mut self.sort_by, "speed".to_string(), "Fastest Speed").clicked();
+                        changed |= ui.selectable_value(&mut self.sort_by, "speed".to_string(), "Highest Speed").clicked();
                         changed |= ui.selectable_value(&mut self.sort_by, "ping".to_string(), "Lowest Ping").clicked();
                         changed |= ui.selectable_value(&mut self.sort_by, "sessions".to_string(), "Most Sessions").clicked();
                         changed |= ui.selectable_value(&mut self.sort_by, "score".to_string(), "Highest Score").clicked();
@@ -458,58 +650,36 @@ impl VpnGateApp {
                             self.update_filtered();
                         }
                     });
-
-                // Country Dropdown
-                let mut countries: Vec<String> = self.all_servers.iter().map(|s| s.country_long.clone()).collect();
-                countries.sort();
-                countries.dedup();
-                countries.insert(0, "All".to_string());
-
-                egui::ComboBox::from_id_salt("country_filter")
-                    .selected_text(format!("Region: {}", self.selected_country))
-                    .show_ui(ui, |ui| {
-                        for c in countries {
-                            if ui.selectable_value(&mut self.selected_country, c.clone(), &c).clicked() {
-                                self.update_filtered();
-                            }
-                        }
-                    });
-
-                // Search Bar
-                let search_box = egui::TextEdit::singleline(&mut self.search_query)
-                    .hint_text("Search IP, Country...")
-                    .desired_width(180.0);
-                if ui.add(search_box).changed() {
-                    self.update_filtered();
-                }
             });
         });
 
         ui.add_space(10.0);
 
-        // Swiss Virtualized Data Table
-        let available_height = ui.available_height() - 10.0;
+        // Hairline divider
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
+        ui.painter().rect_filled(rect, 0.0, Color32::from_rgb(31, 31, 31));
+
+        // 2. Swiss Virtualized Data Table
+        let available_height = ui.available_height() - 4.0;
         let num_rows = self.filtered_servers.len();
 
-        ui.push_id("relays_table", |ui| {
+        ui.push_id("relays_matrix_view", |ui| {
             TableBuilder::new(ui)
                 .striped(true)
                 .resizable(false)
                 .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::exact(180.0)) // Relay (Flag + Country)
-                .column(Column::exact(140.0)) // IP
-                .column(Column::exact(60.0))  // Proto
-                .column(Column::exact(100.0)) // Speed
-                .column(Column::exact(80.0))  // Ping
-                .column(Column::remainder())  // Sessions
+                .column(Column::exact(220.0)) // LOCATION / IP ADDRESS
+                .column(Column::exact(65.0))  // PROTO
+                .column(Column::exact(110.0)) // BANDWIDTH
+                .column(Column::exact(85.0))  // LATENCY
+                .column(Column::remainder())  // SESSIONS
                 .min_scrolled_height(available_height)
                 .header(24.0, |mut header| {
-                    header.col(|ui| { ui.label(RichText::new("RELAY REGION").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115))); });
-                    header.col(|ui| { ui.label(RichText::new("ENDPOINT IP").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115))); });
-                    header.col(|ui| { ui.label(RichText::new("PROTO").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115))); });
-                    header.col(|ui| { ui.label(RichText::new("THROUGHPUT").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115))); });
-                    header.col(|ui| { ui.label(RichText::new("PING").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115))); });
-                    header.col(|ui| { ui.label(RichText::new("SESSIONS").size(10.0).monospace().color(Color32::from_rgb(115, 115, 115))); });
+                    header.col(|ui| { ui.label(RichText::new("LOCATION / IP ADDRESS").size(9.5).monospace().color(Color32::from_rgb(115, 115, 115))); });
+                    header.col(|ui| { ui.label(RichText::new("PROTO").size(9.5).monospace().color(Color32::from_rgb(115, 115, 115))); });
+                    header.col(|ui| { ui.label(RichText::new("BANDWIDTH").size(9.5).monospace().color(Color32::from_rgb(115, 115, 115))); });
+                    header.col(|ui| { ui.label(RichText::new("LATENCY").size(9.5).monospace().color(Color32::from_rgb(115, 115, 115))); });
+                    header.col(|ui| { ui.label(RichText::new("SESSIONS").size(9.5).monospace().color(Color32::from_rgb(115, 115, 115))); });
                 })
                 .body(|body| {
                     body.rows(28.0, num_rows, |mut row| {
@@ -518,12 +688,19 @@ impl VpnGateApp {
                             let is_selected = self.selected_server.as_ref().map_or(false, |s| s.ip == server.ip);
 
                             row.col(|ui| {
-                                if ui.selectable_label(is_selected, format!("{} {}", server.flag(), server.country_long)).clicked() {
+                                let label = format!("{} {}", server.flag(), server.country_long);
+                                let resp = ui.selectable_label(is_selected, label);
+                                if resp.clicked() {
                                     self.selected_server = Some(server.clone());
                                 }
-                            });
-                            row.col(|ui| {
-                                ui.label(RichText::new(format!("{}:{}", server.ip, server.port)).monospace().size(11.0).color(Color32::from_rgb(200, 200, 200)));
+                                if resp.double_clicked() {
+                                    self.selected_server = Some(server.clone());
+                                    if self.is_admin {
+                                        let _ = self.openvpn.connect(&server);
+                                    } else {
+                                        self.elevation_prompt_open = true;
+                                    }
+                                }
                             });
                             row.col(|ui| {
                                 ui.label(RichText::new(&server.proto).monospace().size(10.0).color(Color32::from_rgb(163, 163, 163)));
@@ -548,6 +725,9 @@ impl VpnGateApp {
         });
     }
 
+    // =========================================================================
+    // ALTERNATIVE VIEW: DIAGNOSTICS LOG CONSOLE
+    // =========================================================================
     fn render_diagnostics_view(&mut self, ui: &mut egui::Ui) {
         let ram_mb = crate::openvpn::get_working_set_bytes() as f64 / (1024.0 * 1024.0);
         ui.add_space(10.0);
