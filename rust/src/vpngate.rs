@@ -139,6 +139,7 @@ pub fn parse_csv(raw: &str) -> Vec<VpnServer> {
     servers
 }
 
+#[allow(dead_code)]
 pub fn filter_and_sort(
     servers: &[VpnServer],
     search: &str,

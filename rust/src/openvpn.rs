@@ -313,6 +313,7 @@ impl OpenVpnManager {
         let _ = self.log_sender.send("VPN Disconnected. System default gateway restored.".to_string());
     }
 
+    #[allow(dead_code)]
     pub fn export_config(&self, server: &VpnServer, destination: &Path) -> Result<(), String> {
         let raw = server
             .get_decoded_config()

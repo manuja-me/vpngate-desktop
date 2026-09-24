@@ -1,7 +1,7 @@
 use base64::Engine;
 
 #[allow(dead_code)]
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct VpnServer {
     pub host_name: String,
     pub ip: String,
@@ -19,6 +19,7 @@ pub struct VpnServer {
 }
 
 impl VpnServer {
+    #[allow(dead_code)]
     pub fn flag(&self) -> &'static str {
         get_flag(&self.country_short)
     }
@@ -33,6 +34,7 @@ impl VpnServer {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_flag(code: &str) -> &'static str {
     match code.to_uppercase().as_str() {
         "JP" => "🇯🇵",

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPN Gate Studio</title>
+  <link rel="stylesheet" href="style.css">
+  <style>/* INJECT_STYLE */</style>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- 1. Window Header / Titlebar -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo"></div>
+        <span class="brand-title">VPN GATE</span>
+        <span class="brand-sub mono">STUDIO / MONOCHROME</span>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="tabs-nav">
+        <button id="tab-relays" onclick="switchTab('relays')" class="tab-btn active">RELAYS</button>
+        <button id="tab-logs" onclick="switchTab('logs')" class="tab-btn">DIAGNOSTICS</button>
+      </nav>
+
+      <!-- Status Indicator & Elevation -->
+      <div class="header-status">
+        <div id="admin-badge-container">
+          <span id="admin-badge" class="admin-badge mono" onclick="requestAdminElevation()">USER MODE</span>
+        </div>
+        <span class="mono" style="display: flex; align-items: center; gap: 6px;">
+          <span class="status-indicator"></span>
+          <span id="top-ready-label">READY</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- 2. Workspace View: Relays -->
+    <main id="view-relays" class="app-main">
+      
+      <!-- Left Panel: Connection Centerpiece & Telemetry (320px) -->
+      <aside class="app-sidebar">
+        <div>
+          <!-- Telemetry Header -->
+          <div class="telemetry-header">
+            <span class="telemetry-title mono">TUNNEL STATUS</span>
+            <span id="badge-status" class="status-badge disconnected mono">DISCONNECTED</span>
+          </div>
+
+          <!-- Hero State Display Card -->
+          <div class="target-card">
+            <div class="target-header mono">SELECTED TARGET</div>
+            <div id="target-title" class="target-title">
+              <span id="target-flag">🌐</span>
+              <span id="target-name">No Server Selected</span>
+            </div>
+            <div id="target-sub" class="target-sub mono">---.---.---.--- : ----</div>
+
+            <div class="target-stats mono">
+              <div>
+                <span class="target-stat-label">BANDWIDTH</span>
+                <span id="target-speed" class="target-stat-val">--.- Mbps</span>
+              </div>
+              <div>
+                <span class="target-stat-label">LATENCY</span>
+                <span id="target-ping" class="target-stat-val">-- ms</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stopwatch Timer -->
+          <div class="timer-box">
+            <span class="timer-label mono">SESSION DURATION</span>
+            <span id="session-clock" class="timer-clock mono">00:00:00</span>
+          </div>
+
+          <!-- Primary Action Button -->
+          <button id="btn-toggle-vpn" onclick="toggleVpn()" class="btn-primary-action mono">
+            <span id="btn-icon">⚡</span>
+            <span id="btn-text">CONNECT TO RELAY</span>
+          </button>
+
+          <!-- Export Profile Button -->
+          <button onclick="exportSelectedProfile()" class="btn-secondary mono">
+            EXPORT .OVPN PROFILE
+          </button>
+        </div>
+
+        <!-- Metric KPI Cards at bottom -->
+        <div class="metrics-panel mono">
+          <div class="metric-row">
+            <span>NETWORK NODES</span>
+            <span id="metric-nodes" class="metric-val">0 RELAYS</span>
+          </div>
+          <div class="metric-row">
+            <span>COUNTRIES</span>
+            <span id="metric-countries" class="metric-val">0 REGIONS</span>
+          </div>
+          <div class="metric-row">
+            <span>PEAK BANDWIDTH</span>
+            <span id="metric-bandwidth" class="metric-val">0.0 MBPS</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right Panel: Controls & Server List (Flex-1) -->
+      <section class="app-content">
+        
+        <!-- Controls Toolbar -->
+        <div class="controls-toolbar">
+          <div class="search-wrapper">
+            <input id="search-input" type="text" placeholder="FILTER BY COUNTRY, IP, HOSTNAME, OPERATOR..." oninput="onFilterChange()" class="search-input mono">
+          </div>
+
+          <select id="sort-select" onchange="onSortChange()" class="control-select mono">
+            <option value="speed">HIGHEST SPEED</option>
+            <option value="ping">LOWEST PING</option>
+            <option value="sessions">MOST SESSIONS</option>
+            <option value="score">TOP SCORE</option>
+          </select>
+
+          <button id="btn-refresh" onclick="refreshServers(true)" class="control-btn mono">
+            ↻ REFRESH
+          </button>
+        </div>
+
+        <!-- Country Filter Tabs Bar -->
+        <div id="country-pills-bar" class="filter-pills-bar mono">
+          <button onclick="selectCountry('ALL')" class="country-pill active">ALL</button>
+        </div>
+
+        <!-- Relay Table Header -->
+        <div class="table-header mono">
+          <div class="th-cell th-center">FLAG</div>
+          <div class="th-cell">LOCATION / IP ADDRESS</div>
+          <div class="th-cell th-right">BANDWIDTH</div>
+          <div class="th-cell th-right">LATENCY</div>
+          <div class="th-cell th-right">SESSIONS</div>
+          <div class="th-cell th-center">PROTO</div>
+        </div>
+
+        <!-- Server List Body -->
+        <div id="server-list" class="table-body">
+          <div class="empty-state mono">
+            <div>FETCHING VPN SERVERS FROM CACHE & API...</div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- 3. Workspace View: Diagnostics Logs Console -->
+    <main id="view-logs" class="diagnostics-view" style="display: none;">
+      <div class="diag-header">
+        <div class="diag-title mono">
+          <span style="display: inline-block; width: 6px; height: 6px; background-color: #ffffff;"></span>
+          OPENVPN TUNNEL DIAGNOSTICS & SYSTEM TELEMETRY
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="clearLogs()" class="control-btn mono" style="padding: 4px 10px; font-size: 10px;">CLEAR</button>
+          <button onclick="copyLogs()" class="control-btn mono" style="padding: 4px 10px; font-size: 10px;">COPY ALL</button>
+        </div>
+      </div>
+      <div id="log-console" class="log-terminal mono">
+        <div>[00:00:00] VPN Gate Studio Core Initialized.</div>
+      </div>
+    </main>
+
+    <!-- 4. Minimalist Footer Bar -->
+    <footer class="app-footer mono">
+      <div class="footer-left">
+        <span>ENGINE: OPENVPN 2.6</span>
+        <span>PROTOCOL: UDP / TCP</span>
+        <span>DRIVER: WINTUN / TAP</span>
+        <span id="footer-memory">MEM: -- MB</span>
+      </div>
+      <div>
+        <span>VPN GATE ACADEMIC RESEARCH • UNIVERSITY OF TSUKUBA</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+  <script>/* INJECT_SCRIPT */</script>
+</body>
+</html>
