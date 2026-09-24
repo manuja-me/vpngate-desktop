@@ -163,7 +163,7 @@ impl OpenVpnManager {
                             *st = VpnState::Connected;
                             *status_clone.lock().unwrap() = "CONNECTED".to_string();
                             *start_time_clone.lock().unwrap() = Some(Instant::now());
-                            let _ = log_tx_out.send(">>> Tunnel Established! Traffic is now routed through VPN Gate.".to_string());
+                            let _ = log_tx_out.send("[CONNECTED] Tunnel established successfully! All traffic is now routed through VPN Gate.".to_string());
                             flush_dns();
                         } else if line.contains("AUTH_FAILED") {
                             let mut st = state_clone.lock().unwrap();

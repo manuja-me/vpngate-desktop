@@ -264,9 +264,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 openvpn::VpnState::Error => "Error",
             };
 
-            if cur_state != last_state || cur_state == openvpn::VpnState::Connected {
+            if cur_state != last_state {
+                if cur_state == openvpn::VpnState::Connected {
+                    let _ = poll_proxy.send_event(UserEvent::VpnLog(
+                        "[CONNECTED] Verified active: Encrypted VPN tunnel is online and active.".to_string(),
+                    ));
+                }
                 let _ = poll_proxy.send_event(UserEvent::VpnStatus(state_str.to_string(), dur_secs));
                 last_state = cur_state;
+            } else if cur_state == openvpn::VpnState::Connected {
+                let _ = poll_proxy.send_event(UserEvent::VpnStatus(state_str.to_string(), dur_secs));
             }
 
             let mb = openvpn::get_working_set_bytes() as f64 / 1_048_576.0;

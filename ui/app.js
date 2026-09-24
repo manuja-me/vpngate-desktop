@@ -42,6 +42,7 @@ window.onServersLoaded = function(servers) {
 };
 
 window.onVpnStatus = function(state, durationSecs) {
+  const previousState = currentVpnState;
   currentVpnState = state;
   const badge = document.getElementById("badge-status");
   const btn = document.getElementById("btn-toggle-vpn");
@@ -60,6 +61,14 @@ window.onVpnStatus = function(state, durationSecs) {
       sessionSeconds = durationSecs;
     }
     startTimer();
+
+    // Print explicit [CONNECTED] line when connection is achieved
+    if (previousState !== "Connected") {
+      const targetStr = selectedServer 
+        ? `${selectedServer.country_long} (${selectedServer.ip}:${selectedServer.port} / ${selectedServer.proto})`
+        : "relay node";
+      window.onVpnLog(`[CONNECTED] >>> Tunnel established successfully to ${targetStr}. Traffic is now secured.`);
+    }
   } else if (state === "Connecting") {
     btn.className = "btn-primary-action mono disconnect";
     btnIcon.innerText = "◌";
@@ -75,6 +84,9 @@ window.onVpnStatus = function(state, durationSecs) {
     btn.className = "btn-primary-action mono";
     btnIcon.innerText = "⚡";
     btnText.innerText = "CONNECT TO RELAY";
+    if (previousState === "Connected") {
+      window.onVpnLog("[DISCONNECTED] >>> Tunnel closed. System default routes restored.");
+    }
     stopTimer();
   }
 };
@@ -84,15 +96,25 @@ window.onVpnLog = function(logLine) {
   if (!con) return;
 
   const div = document.createElement("div");
-  if (logLine.includes("Initialization Sequence Completed") || logLine.includes("CONNECTED")) {
+  if (logLine.includes("[CONNECTED]") || logLine.includes(">>> Tunnel established") || logLine.includes("Tunnel Established")) {
+    div.className = "log-connected";
+  } else if (logLine.includes("Initialization Sequence Completed") || logLine.includes("[DISCONNECTED]")) {
     div.className = "log-highlight";
-  } else if (logLine.includes("WARNING:") || logLine.includes("WARN")) {
+  } else if (logLine.includes("WARNING:") || logLine.includes("WARN") || logLine.includes("[Warning]")) {
     div.className = "log-warn";
   } else if (logLine.includes("ERROR:") || logLine.includes("FAILED") || logLine.includes("Fatal")) {
     div.className = "log-error";
   }
   
-  div.textContent = logLine;
+  // Format with current timestamp if line does not start with a bracketed tag or timestamp
+  if (!logLine.startsWith("[")) {
+    const now = new Date();
+    const timeStr = `[${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}] `;
+    div.textContent = timeStr + logLine;
+  } else {
+    div.textContent = logLine;
+  }
+
   con.appendChild(div);
 
   // Auto-scroll to bottom

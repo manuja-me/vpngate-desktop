@@ -619,6 +619,16 @@ body {
   margin-bottom: 2px;
 }
 
+.log-terminal .log-connected {
+  color: #000000;
+  background-color: #ffffff;
+  font-weight: 700;
+  padding: 4px 8px;
+  margin: 6px 0;
+  display: block;
+  letter-spacing: 0.04em;
+}
+
 .log-terminal .log-highlight {
   color: #ffffff;
   font-weight: 600;
