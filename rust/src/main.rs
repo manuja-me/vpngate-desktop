@@ -2,6 +2,7 @@
 
 mod models;
 mod openvpn;
+mod theme;
 mod ui;
 mod vpngate;
 
