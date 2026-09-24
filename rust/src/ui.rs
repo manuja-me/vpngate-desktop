@@ -40,46 +40,68 @@ impl VpnGateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let theme = Theme::load_or_default();
 
-        // Configure Swiss Minimalist Monochrome Theme
+        // 1. Configure Swiss Minimalist Monochrome Visuals
         let mut visuals = egui::Visuals::dark();
         visuals.override_text_color = Some(theme.c_text_primary);
         visuals.panel_fill = theme.c_bg_black;
         visuals.window_fill = theme.c_bg_black;
-        visuals.extreme_bg_color = theme.c_bg_surface;
-        visuals.faint_bg_color = theme.c_bg_card;
+        visuals.extreme_bg_color = theme.c_bg_black;
+        visuals.faint_bg_color = theme.c_bg_surface;
+        
+        // CRITICAL: OVERRIDE DEFAULT BLUE SELECTION WITH MONOCHROME!
+        visuals.selection.bg_fill = theme.c_primary_btn_bg; // Pure White
+        visuals.selection.stroke = Stroke::new(1.0_f32, theme.c_primary_btn_fg); // Black
         
         visuals.widgets.noninteractive.bg_fill = theme.c_bg_black;
         visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, theme.c_border_hairline);
         visuals.widgets.noninteractive.corner_radius = CornerRadius::same(theme.config.card_radius);
         
-        visuals.widgets.inactive.bg_fill = theme.c_bg_surface;
+        visuals.widgets.inactive.bg_fill = theme.c_bg_black;
         visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, theme.c_border_hairline);
         visuals.widgets.inactive.corner_radius = CornerRadius::same(theme.config.button_radius);
         
-        // CRITICAL FOR ZERO HOVER VIBRATION:
-        // Hover MUST NOT change outer stroke thickness or mutate layout footprint!
         visuals.widgets.hovered.bg_fill = theme.c_bg_hover;
-        visuals.widgets.hovered.bg_stroke = Stroke::NONE;
+        visuals.widgets.hovered.bg_stroke = Stroke::new(1.0_f32, theme.c_border_subtle);
         visuals.widgets.hovered.corner_radius = CornerRadius::same(theme.config.button_radius);
         
         visuals.widgets.active.bg_fill = theme.c_primary_btn_bg;
         visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, theme.c_primary_btn_fg);
         visuals.widgets.active.corner_radius = CornerRadius::same(theme.config.button_radius);
+
+        visuals.widgets.open = visuals.widgets.inactive;
+        visuals.widgets.open.bg_fill = theme.c_bg_surface;
+        visuals.widgets.open.bg_stroke = Stroke::new(1.0_f32, theme.c_border_subtle);
         
         visuals.window_corner_radius = CornerRadius::ZERO;
         visuals.menu_corner_radius = CornerRadius::same(theme.config.card_radius);
 
         cc.egui_ctx.set_visuals(visuals);
 
+        // 2. Load Crisp Native Windows TrueType Fonts (Segoe UI + Consolas)
+        let mut fonts = egui::FontDefinitions::default();
+        if let Ok(segoe_data) = std::fs::read("C:\\Windows\\Fonts\\segoeui.ttf") {
+            fonts.font_data.insert("segoeui".to_owned(), std::sync::Arc::new(egui::FontData::from_owned(segoe_data)));
+            if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+                family.insert(0, "segoeui".to_owned());
+            }
+        }
+        if let Ok(consola_data) = std::fs::read("C:\\Windows\\Fonts\\consola.ttf") {
+            fonts.font_data.insert("consola".to_owned(), std::sync::Arc::new(egui::FontData::from_owned(consola_data)));
+            if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
+                family.insert(0, "consola".to_owned());
+            }
+        }
+        cc.egui_ctx.set_fonts(fonts);
+
         let openvpn = Arc::new(OpenVpnManager::new());
         let is_admin = is_running_as_admin();
 
-        // 1. Purge any stale zombie routes on startup
+        // 3. Purge any stale zombie routes on startup
         thread::spawn(|| {
             crate::openvpn::purge_stale_routes();
         });
 
-        // 2. Load cached servers immediately (< 2ms)
+        // 4. Load cached servers immediately (< 2ms)
         let cached = load_cached_servers();
         let filtered = filter_and_sort(&cached, "", "All", "speed");
 
@@ -107,7 +129,7 @@ impl VpnGateApp {
             app.selected_server = Some(first.clone());
         }
 
-        // 3. Trigger initial background fetch
+        // 5. Trigger initial background fetch
         app.trigger_refresh(false);
 
         app
@@ -264,7 +286,17 @@ impl eframe::App for VpnGateApp {
                         if self.is_admin {
                             ui.label(RichText::new("● ELEVATED").size(10.0).monospace().color(self.theme.c_text_secondary));
                         } else {
-                            if ui.button(RichText::new("⚠ RESTART AS ADMIN").size(10.0).monospace().color(self.theme.c_bg_black))
+                            let admin_btn = egui::Button::new(
+                                RichText::new("⚠ RESTART AS ADMIN")
+                                    .size(9.5)
+                                    .monospace()
+                                    .color(self.theme.c_text_secondary),
+                            )
+                            .fill(self.theme.c_bg_black)
+                            .stroke(Stroke::new(1.0_f32, self.theme.c_border_subtle))
+                            .corner_radius(CornerRadius::same(self.theme.config.button_radius));
+
+                            if ui.add(admin_btn)
                                 .on_hover_text("Administrator elevation is required to modify Windows default routing tables")
                                 .clicked()
                             {
@@ -370,283 +402,271 @@ impl eframe::App for VpnGateApp {
 
 impl VpnGateApp {
     // =========================================================================
-    // LEFT HERO SIDEBAR (Original Two-Column Swiss Layout)
+    // LEFT HERO SIDEBAR (Deterministic Bottom-Up Layout: Zero Jitter!)
     // =========================================================================
     fn render_left_sidebar(&mut self, ui: &mut egui::Ui) {
-        // 1. Status Header
-        let state = self.openvpn.get_state();
-        let (dot, text, color) = match state {
-            VpnState::Connected => ("●", "CONNECTED", self.theme.c_text_primary),
-            VpnState::Connecting => ("◌", "CONNECTING...", self.theme.c_text_secondary),
-            VpnState::Disconnecting => ("◌", "DISCONNECTING...", self.theme.c_text_secondary),
-            VpnState::Error => ("✖", "ERROR", self.theme.c_text_primary),
-            VpnState::Disconnected => ("○", "DISCONNECTED", self.theme.c_text_muted),
-        };
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            // -------------------------------------------------------------
+            // STEP A: Bottom KPI Metrics (Placed at absolute bottom)
+            // -------------------------------------------------------------
+            ui.add_space(4.0);
 
-        ui.horizontal(|ui| {
-            ui.label(RichText::new(dot).size(11.0).color(color));
-            ui.label(RichText::new(text).size(11.0).monospace().strong().color(color));
+            let total_servers_count = self.all_servers.len();
+            let unique_country_count = {
+                let set: std::collections::HashSet<&str> = self.all_servers.iter().map(|s| s.country_long.as_str()).collect();
+                set.len()
+            };
+            let max_speed = self.all_servers.iter().map(|s| s.speed_mbps).fold(0.0, f64::max);
+            let ram_mb = crate::openvpn::get_working_set_bytes() as f64 / (1024.0 * 1024.0);
 
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let dur_str = if let Some(dur) = self.openvpn.get_connection_duration() {
-                    let secs = dur.as_secs();
-                    format!("{:02}:{:02}:{:02}", secs / 3600, (secs % 3600) / 60, secs % 60)
-                } else {
-                    "00:00:00".to_string()
+            let render_kpi = |ui: &mut egui::Ui, title: &str, value: &str, fg: Color32, muted: Color32| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(title).size(9.0).monospace().color(muted));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(value).size(10.0).monospace().strong().color(fg));
+                    });
+                });
+                ui.add_space(2.0);
+            };
+
+            render_kpi(ui, "RAM WORKING SET", &format!("{:.1} MB", ram_mb), self.theme.c_text_primary, self.theme.c_text_muted);
+            render_kpi(ui, "MAX BANDWIDTH", &format!("{:.1} Mbps", max_speed), self.theme.c_text_primary, self.theme.c_text_muted);
+            render_kpi(ui, "GLOBAL COVERAGE", &format!("{} Regions", unique_country_count), self.theme.c_text_primary, self.theme.c_text_muted);
+            render_kpi(ui, "ONLINE RELAYS", &format!("{} Relays", total_servers_count), self.theme.c_text_primary, self.theme.c_text_muted);
+
+            // Divider separating bottom metrics from the regions list
+            ui.add_space(6.0);
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
+            ui.painter().rect_filled(rect, 0.0, self.theme.c_border_hairline);
+            ui.add_space(8.0);
+
+            // -------------------------------------------------------------
+            // STEP B: Top Section & Scrollable Regions (Fills remaining height)
+            // -------------------------------------------------------------
+            ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                // 1. Status Header
+                let state = self.openvpn.get_state();
+                let (dot, text, color) = match state {
+                    VpnState::Connected => ("●", "CONNECTED", self.theme.c_text_primary),
+                    VpnState::Connecting => ("◌", "CONNECTING...", self.theme.c_text_secondary),
+                    VpnState::Disconnecting => ("◌", "DISCONNECTING...", self.theme.c_text_secondary),
+                    VpnState::Error => ("✖", "ERROR", self.theme.c_text_primary),
+                    VpnState::Disconnected => ("○", "DISCONNECTED", self.theme.c_text_muted),
                 };
 
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(dot).size(11.0).color(color));
+                    ui.label(RichText::new(text).size(11.0).monospace().strong().color(color));
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let dur_str = if let Some(dur) = self.openvpn.get_connection_duration() {
+                            let secs = dur.as_secs();
+                            format!("{:02}:{:02}:{:02}", secs / 3600, (secs % 3600) / 60, secs % 60)
+                        } else {
+                            "00:00:00".to_string()
+                        };
+
+                        egui::Frame::NONE
+                            .fill(self.theme.c_bg_black)
+                            .stroke(Stroke::new(1.0_f32, self.theme.c_border_hairline))
+                            .corner_radius(CornerRadius::same(self.theme.config.card_radius))
+                            .inner_margin(egui::Margin::symmetric(6, 2))
+                            .show(ui, |ui| {
+                                ui.label(RichText::new(dur_str).size(10.5).monospace().color(self.theme.c_text_primary));
+                            });
+                    });
+                });
+
+                ui.add_space(14.0);
+
+                // 2. Selected Target Node Box
                 egui::Frame::NONE
-                    .fill(self.theme.c_bg_black)
+                    .fill(self.theme.c_bg_card)
                     .stroke(Stroke::new(1.0_f32, self.theme.c_border_hairline))
                     .corner_radius(CornerRadius::same(self.theme.config.card_radius))
-                    .inner_margin(egui::Margin::symmetric(6, 2))
+                    .inner_margin(12.0)
                     .show(ui, |ui| {
-                        ui.label(RichText::new(dur_str).size(10.5).monospace().color(self.theme.c_text_primary));
+                        ui.set_width(ui.available_width());
+                        ui.label(RichText::new("SELECTED TARGET").size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_muted));
+                        ui.add_space(4.0);
+
+                        if let Some(ref server) = self.selected_server {
+                            ui.label(RichText::new(format!("{} {}", server.flag(), server.country_long)).size(self.theme.config.font_size_title).strong().color(self.theme.c_text_primary));
+                            ui.add_space(2.0);
+                            ui.label(RichText::new(format!("{}:{} • {}", server.ip, server.port, server.proto)).size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_secondary));
+                            ui.add_space(8.0);
+
+                            // Hairline divider
+                            let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
+                            ui.painter().rect_filled(rect, 0.0, self.theme.c_border_hairline);
+                            ui.add_space(8.0);
+
+                            ui.columns(2, |cols| {
+                                cols[0].vertical(|ui| {
+                                    ui.label(RichText::new("SPEED").size(8.5).monospace().color(self.theme.c_text_muted));
+                                    ui.label(RichText::new(format!("{:.1} Mbps", server.speed_mbps)).size(11.0).monospace().strong().color(self.theme.c_text_primary));
+                                });
+                                cols[1].vertical(|ui| {
+                                    ui.label(RichText::new("LATENCY").size(8.5).monospace().color(self.theme.c_text_muted));
+                                    ui.label(RichText::new(format!("{} ms", server.ping)).size(11.0).monospace().strong().color(self.theme.c_text_primary));
+                                });
+                            });
+                        } else {
+                            ui.label(RichText::new("No Server Selected").size(self.theme.config.font_size_title).strong().color(self.theme.c_text_secondary));
+                            ui.add_space(2.0);
+                            ui.label(RichText::new("Pick any node from the explorer to connect").size(10.0).monospace().color(self.theme.c_text_muted));
+                        }
                     });
-            });
-        });
 
-        ui.add_space(14.0);
+                ui.add_space(12.0);
 
-        // 2. Selected Target Node Box
-        egui::Frame::NONE
-            .fill(self.theme.c_bg_card)
-            .stroke(Stroke::new(1.0_f32, self.theme.c_border_hairline))
-            .corner_radius(CornerRadius::same(self.theme.config.card_radius))
-            .inner_margin(12.0)
-            .show(ui, |ui| {
-                ui.set_width(ui.available_width());
-                ui.label(RichText::new("SELECTED TARGET").size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_muted));
-                ui.add_space(4.0);
+                // 3. Connect / Disconnect Button
+                let has_selection = self.selected_server.is_some();
+                match state {
+                    VpnState::Connected => {
+                        let btn = egui::Button::new(
+                            RichText::new("■ DISCONNECT FROM RELAY")
+                                .size(11.5)
+                                .strong()
+                                .monospace()
+                                .color(self.theme.c_disconnect_btn_fg),
+                        )
+                        .fill(self.theme.c_disconnect_btn_bg)
+                        .stroke(Stroke::new(1.0_f32, self.theme.c_disconnect_btn_border))
+                        .corner_radius(CornerRadius::same(self.theme.config.button_radius))
+                        .min_size(Vec2::new(ui.available_width(), 42.0));
 
-                if let Some(ref server) = self.selected_server {
-                    ui.label(RichText::new(format!("{} {}", server.flag(), server.country_long)).size(self.theme.config.font_size_title).strong().color(self.theme.c_text_primary));
-                    ui.add_space(2.0);
-                    ui.label(RichText::new(format!("{}:{} • {}", server.ip, server.port, server.proto)).size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_secondary));
-                    ui.add_space(8.0);
+                        if ui.add(btn).clicked() {
+                            self.openvpn.disconnect();
+                        }
+                    }
+                    VpnState::Connecting => {
+                        let btn = egui::Button::new(
+                            RichText::new("◌ CONNECTING...").size(11.5).strong().monospace().color(self.theme.c_bg_black),
+                        )
+                        .fill(self.theme.c_text_secondary)
+                        .corner_radius(CornerRadius::same(self.theme.config.button_radius))
+                        .min_size(Vec2::new(ui.available_width(), 42.0));
+                        ui.add_enabled(false, btn);
+                    }
+                    VpnState::Disconnecting => {
+                        let btn = egui::Button::new(
+                            RichText::new("◌ DISCONNECTING...").size(11.5).strong().monospace().color(self.theme.c_text_primary),
+                        )
+                        .fill(Color32::from_rgb(30, 30, 30))
+                        .corner_radius(CornerRadius::same(self.theme.config.button_radius))
+                        .min_size(Vec2::new(ui.available_width(), 42.0));
+                        ui.add_enabled(false, btn);
+                    }
+                    _ => {
+                        let btn = egui::Button::new(
+                            RichText::new("⚡ CONNECT TO RELAY")
+                                .size(11.5)
+                                .strong()
+                                .monospace()
+                                .color(self.theme.c_primary_btn_fg),
+                        )
+                        .fill(if has_selection { self.theme.c_primary_btn_bg } else { Color32::from_rgb(40, 40, 40) })
+                        .corner_radius(CornerRadius::same(self.theme.config.button_radius))
+                        .min_size(Vec2::new(ui.available_width(), 42.0));
 
-                    // Hairline divider
-                    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
-                    ui.painter().rect_filled(rect, 0.0, self.theme.c_border_hairline);
-                    ui.add_space(8.0);
-
-                    ui.columns(2, |cols| {
-                        cols[0].vertical(|ui| {
-                            ui.label(RichText::new("SPEED").size(8.5).monospace().color(self.theme.c_text_muted));
-                            ui.label(RichText::new(format!("{:.1} Mbps", server.speed_mbps)).size(11.0).monospace().strong().color(self.theme.c_text_primary));
-                        });
-                        cols[1].vertical(|ui| {
-                            ui.label(RichText::new("LATENCY").size(8.5).monospace().color(self.theme.c_text_muted));
-                            ui.label(RichText::new(format!("{} ms", server.ping)).size(11.0).monospace().strong().color(self.theme.c_text_primary));
-                        });
-                    });
-                } else {
-                    ui.label(RichText::new("No Server Selected").size(self.theme.config.font_size_title).strong().color(self.theme.c_text_secondary));
-                    ui.add_space(2.0);
-                    ui.label(RichText::new("Pick any node from the explorer to connect").size(10.0).monospace().color(self.theme.c_text_muted));
-                }
-            });
-
-        ui.add_space(12.0);
-
-        // 3. Main Action Buttons
-        let has_selection = self.selected_server.is_some();
-        match state {
-            VpnState::Connected => {
-                let btn = egui::Button::new(
-                    RichText::new("■ DISCONNECT FROM RELAY")
-                        .size(11.5)
-                        .strong()
-                        .monospace()
-                        .color(self.theme.c_disconnect_btn_fg),
-                )
-                .fill(self.theme.c_disconnect_btn_bg)
-                .stroke(Stroke::new(1.0_f32, self.theme.c_disconnect_btn_border))
-                .corner_radius(CornerRadius::same(self.theme.config.button_radius))
-                .min_size(Vec2::new(ui.available_width(), 42.0));
-
-                if ui.add(btn).clicked() {
-                    self.openvpn.disconnect();
-                }
-            }
-            VpnState::Connecting => {
-                let btn = egui::Button::new(
-                    RichText::new("◌ CONNECTING...").size(11.5).strong().monospace().color(self.theme.c_bg_black),
-                )
-                .fill(self.theme.c_text_secondary)
-                .corner_radius(CornerRadius::same(self.theme.config.button_radius))
-                .min_size(Vec2::new(ui.available_width(), 42.0));
-                ui.add_enabled(false, btn);
-            }
-            VpnState::Disconnecting => {
-                let btn = egui::Button::new(
-                    RichText::new("◌ DISCONNECTING...").size(11.5).strong().monospace().color(self.theme.c_text_primary),
-                )
-                .fill(Color32::from_rgb(30, 30, 30))
-                .corner_radius(CornerRadius::same(self.theme.config.button_radius))
-                .min_size(Vec2::new(ui.available_width(), 42.0));
-                ui.add_enabled(false, btn);
-            }
-            _ => {
-                let btn = egui::Button::new(
-                    RichText::new("⚡ CONNECT TO RELAY")
-                        .size(11.5)
-                        .strong()
-                        .monospace()
-                        .color(self.theme.c_primary_btn_fg),
-                )
-                .fill(if has_selection { self.theme.c_primary_btn_bg } else { Color32::from_rgb(40, 40, 40) })
-                .corner_radius(CornerRadius::same(self.theme.config.button_radius))
-                .min_size(Vec2::new(ui.available_width(), 42.0));
-
-                if ui.add_enabled(has_selection, btn).clicked() {
-                    if !self.is_admin {
-                        self.elevation_prompt_open = true;
-                    } else if let Some(ref server) = self.selected_server {
-                        if let Err(e) = self.openvpn.connect(server) {
-                            self.logs.push(format!("[Error] Connect failed: {}", e));
+                        if ui.add_enabled(has_selection, btn).clicked() {
+                            if !self.is_admin {
+                                self.elevation_prompt_open = true;
+                            } else if let Some(ref server) = self.selected_server {
+                                if let Err(e) = self.openvpn.connect(server) {
+                                    self.logs.push(format!("[Error] Connect failed: {}", e));
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        ui.add_space(8.0);
+                ui.add_space(8.0);
 
-        // 4. Export Profile Button
-        let export_btn = egui::Button::new(
-            RichText::new("EXPORT .OVPN PROFILE")
-                .size(10.0)
-                .monospace()
-                .color(if has_selection { self.theme.c_text_secondary } else { self.theme.c_text_muted }),
-        )
-        .fill(self.theme.c_bg_black)
-        .stroke(Stroke::new(1.0_f32, self.theme.c_border_hairline))
-        .corner_radius(CornerRadius::same(self.theme.config.button_radius))
-        .min_size(Vec2::new(ui.available_width(), 28.0));
+                // 4. Export Profile Button
+                let export_btn = egui::Button::new(
+                    RichText::new("EXPORT .OVPN PROFILE")
+                        .size(10.0)
+                        .monospace()
+                        .color(if has_selection { self.theme.c_text_secondary } else { self.theme.c_text_muted }),
+                )
+                .fill(self.theme.c_bg_black)
+                .stroke(Stroke::new(1.0_f32, self.theme.c_border_hairline))
+                .corner_radius(CornerRadius::same(self.theme.config.button_radius))
+                .min_size(Vec2::new(ui.available_width(), 28.0));
 
-        if ui.add_enabled(has_selection, export_btn).clicked() {
-            if let Some(ref server) = self.selected_server {
-                let file_name = format!("vpngate_{}_{}.ovpn", server.country_short, server.ip);
-                if let Some(path) = rfd::FileDialog::new().set_file_name(&file_name).add_filter("OpenVPN Config", &["ovpn"]).save_file() {
-                    if let Err(e) = self.openvpn.export_config(server, &path) {
-                        self.logs.push(format!("[Error] Export failed: {}", e));
-                    } else {
-                        self.logs.push(format!("[Export] Saved configuration to {}", path.display()));
+                if ui.add_enabled(has_selection, export_btn).clicked() {
+                    if let Some(ref server) = self.selected_server {
+                        let file_name = format!("vpngate_{}_{}.ovpn", server.country_short, server.ip);
+                        if let Some(path) = rfd::FileDialog::new().set_file_name(&file_name).add_filter("OpenVPN Config", &["ovpn"]).save_file() {
+                            if let Err(e) = self.openvpn.export_config(server, &path) {
+                                self.logs.push(format!("[Error] Export failed: {}", e));
+                            } else {
+                                self.logs.push(format!("[Export] Saved configuration to {}", path.display()));
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        ui.add_space(14.0);
+                ui.add_space(14.0);
 
-        // 5. Precompute Regions & KPIs
-        let total_servers_count = self.all_servers.len();
-        let unique_country_count = {
-            let set: std::collections::HashSet<&str> = self.all_servers.iter().map(|s| s.country_long.as_str()).collect();
-            set.len()
-        };
-        let country_list: Vec<(String, String, usize)> = {
-            let mut country_counts: std::collections::HashMap<String, (String, usize)> = std::collections::HashMap::new();
-            for s in &self.all_servers {
-                let entry = country_counts.entry(s.country_long.clone()).or_insert((s.flag().to_string(), 0));
-                entry.1 += 1;
-            }
-            let mut list: Vec<(String, String, usize)> = country_counts
-                .into_iter()
-                .map(|(c, (f, count))| (c, f, count))
-                .collect();
-            list.sort_by(|a, b| b.2.cmp(&a.2));
-            list
-        };
-        let max_speed = self.all_servers.iter().map(|s| s.speed_mbps).fold(0.0, f64::max);
+                // 5. Regions Header
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("REGIONS").size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_muted));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(RichText::new(format!("{} regions", unique_country_count)).size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_muted));
+                    });
+                });
 
-        // Regions Header
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("REGIONS").size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_muted));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new(format!("{} regions", unique_country_count)).size(self.theme.config.font_size_tiny).monospace().color(self.theme.c_text_muted));
+                ui.add_space(6.0);
+
+                // 6. Middle Scrollable Regions List
+                // The available height is bounded naturally by the bottom layout! Zero overflow!
+                let country_list: Vec<(String, String, usize)> = {
+                    let mut country_counts: std::collections::HashMap<String, (String, usize)> = std::collections::HashMap::new();
+                    for s in &self.all_servers {
+                        let entry = country_counts.entry(s.country_long.clone()).or_insert((s.flag().to_string(), 0));
+                        entry.1 += 1;
+                    }
+                    let mut list: Vec<(String, String, usize)> = country_counts
+                        .into_iter()
+                        .map(|(c, (f, count))| (c, f, count))
+                        .collect();
+                    list.sort_by(|a, b| b.2.cmp(&a.2));
+                    list
+                };
+
+                let mut new_country_selected = None;
+
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        ui.spacing_mut().item_spacing = Vec2::new(0.0, 2.0);
+
+                        // ALL option (Left-Aligned Custom Painter Row)
+                        let is_all = self.selected_country == "All";
+                        let all_label = format!("ALL ({})", total_servers_count);
+                        if render_region_row(ui, &all_label, is_all, &self.theme) {
+                            new_country_selected = Some("All".to_string());
+                        }
+
+                        // Each country (Left-Aligned Custom Painter Row)
+                        for (country, flag, count) in &country_list {
+                            let is_sel = &self.selected_country == country;
+                            let text = format!("{} {} ({})", flag, country, count);
+                            if render_region_row(ui, &text, is_sel, &self.theme) {
+                                new_country_selected = Some(country.clone());
+                            }
+                        }
+                    });
+
+                if let Some(country) = new_country_selected {
+                    self.selected_country = country;
+                    self.update_filtered();
+                }
             });
         });
-
-        ui.add_space(6.0);
-
-        // 6. Middle Scrollable Regions List
-        // FIX VIBRATION: Always keep the vertical scrollbar visible and use fixed SelectableLabel rows!
-        let bottom_height = 105.0;
-        let regions_list_height = (ui.available_height() - bottom_height).max(70.0);
-        let mut new_country_selected = None;
-
-        egui::ScrollArea::vertical()
-            .max_height(regions_list_height)
-            .auto_shrink([false, false])
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
-            .show(ui, |ui| {
-                ui.spacing_mut().item_spacing = Vec2::new(0.0, 2.0);
-
-                // ALL option
-                let is_all = self.selected_country == "All";
-                let all_label = format!("ALL ({})", total_servers_count);
-                let label_text = RichText::new(all_label)
-                    .size(self.theme.config.font_size_small)
-                    .monospace()
-                    .color(if is_all { self.theme.c_primary_btn_fg } else { self.theme.c_text_primary });
-
-                let resp = ui.add_sized(
-                    Vec2::new(ui.available_width() - 4.0, 24.0),
-                    egui::SelectableLabel::new(is_all, label_text),
-                );
-                if resp.clicked() {
-                    new_country_selected = Some("All".to_string());
-                }
-
-                for (country, flag, count) in &country_list {
-                    let is_sel = &self.selected_country == country;
-                    let text = format!("{} {} ({})", flag, country, count);
-                    let label_text = RichText::new(text)
-                        .size(self.theme.config.font_size_small)
-                        .monospace()
-                        .color(if is_sel { self.theme.c_primary_btn_fg } else { self.theme.c_text_secondary });
-
-                    let resp = ui.add_sized(
-                        Vec2::new(ui.available_width() - 4.0, 24.0),
-                        egui::SelectableLabel::new(is_sel, label_text),
-                    );
-
-                    if resp.clicked() {
-                        new_country_selected = Some(country.clone());
-                    }
-                }
-            });
-
-        if let Some(country) = new_country_selected {
-            self.selected_country = country;
-            self.update_filtered();
-        }
-
-        ui.add_space(8.0);
-
-        // 7. Bottom KPI Metrics Block
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
-        ui.painter().rect_filled(rect, 0.0, self.theme.c_border_hairline);
-        ui.add_space(8.0);
-
-        let ram_mb = crate::openvpn::get_working_set_bytes() as f64 / (1024.0 * 1024.0);
-
-        let render_kpi = |ui: &mut egui::Ui, title: &str, value: &str, fg: Color32, muted: Color32| {
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(title).size(9.0).monospace().color(muted));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(value).size(10.0).monospace().strong().color(fg));
-                });
-            });
-            ui.add_space(3.0);
-        };
-
-        render_kpi(ui, "ONLINE RELAYS", &format!("{} Relays", total_servers_count), self.theme.c_text_primary, self.theme.c_text_muted);
-        render_kpi(ui, "GLOBAL COVERAGE", &format!("{} Regions", unique_country_count), self.theme.c_text_primary, self.theme.c_text_muted);
-        render_kpi(ui, "MAX BANDWIDTH", &format!("{:.1} Mbps", max_speed), self.theme.c_text_primary, self.theme.c_text_muted);
-        render_kpi(ui, "RAM WORKING SET", &format!("{:.1} MB", ram_mb), self.theme.c_text_primary, self.theme.c_text_muted);
     }
 
     // =========================================================================
@@ -661,7 +681,9 @@ impl VpnGateApp {
             // Minimalist Search Input
             let search_width = (ui.available_width() - 250.0).max(180.0);
             let search_box = egui::TextEdit::singleline(&mut self.search_query)
-                .hint_text("FILTER BY COUNTRY, IP, HOSTNAME...")
+                .hint_text(RichText::new("FILTER BY COUNTRY, IP, HOSTNAME...").size(10.5).monospace().color(self.theme.c_text_muted))
+                .font(egui::FontId::monospace(11.0))
+                .text_color(self.theme.c_text_primary)
                 .desired_width(search_width);
             if ui.add(search_box).changed() {
                 self.update_filtered();
@@ -670,28 +692,39 @@ impl VpnGateApp {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(14.0);
 
-                // Refresh Button
+                // Refresh Button (Sleek Swiss Monochrome)
                 let refresh_text = if self.is_refreshing { "⏳ LOADING..." } else { "↻ REFRESH" };
-                if ui.button(RichText::new(refresh_text).size(10.0).monospace()).clicked() {
+                let refresh_btn = egui::Button::new(
+                    RichText::new(refresh_text).size(10.0).monospace().color(self.theme.c_text_primary)
+                )
+                .fill(self.theme.c_bg_black)
+                .stroke(Stroke::new(1.0_f32, self.theme.c_border_hairline))
+                .corner_radius(CornerRadius::same(self.theme.config.button_radius))
+                .min_size(Vec2::new(90.0, 26.0));
+
+                if ui.add(refresh_btn).clicked() {
                     self.trigger_refresh(true);
                 }
 
                 ui.add_space(6.0);
 
-                // Sort Dropdown
+                // Sort Dropdown (Sleek Swiss Monochrome)
+                let current_sort_label = match self.sort_by.as_str() {
+                    "ping" => "LOWEST PING",
+                    "sessions" => "MOST SESSIONS",
+                    "score" => "HIGHEST SCORE",
+                    _ => "HIGHEST SPEED",
+                };
+
                 egui::ComboBox::from_id_salt("table_sort_by")
-                    .selected_text(match self.sort_by.as_str() {
-                        "ping" => "Lowest Ping",
-                        "sessions" => "Most Sessions",
-                        "score" => "Highest Score",
-                        _ => "Highest Speed",
-                    })
+                    .selected_text(RichText::new(current_sort_label).size(10.0).monospace().color(self.theme.c_text_primary))
+                    .width(130.0)
                     .show_ui(ui, |ui| {
                         let mut changed = false;
-                        changed |= ui.selectable_value(&mut self.sort_by, "speed".to_string(), "Highest Speed").clicked();
-                        changed |= ui.selectable_value(&mut self.sort_by, "ping".to_string(), "Lowest Ping").clicked();
-                        changed |= ui.selectable_value(&mut self.sort_by, "sessions".to_string(), "Most Sessions").clicked();
-                        changed |= ui.selectable_value(&mut self.sort_by, "score".to_string(), "Highest Score").clicked();
+                        changed |= ui.selectable_value(&mut self.sort_by, "speed".to_string(), "HIGHEST SPEED").clicked();
+                        changed |= ui.selectable_value(&mut self.sort_by, "ping".to_string(), "LOWEST PING").clicked();
+                        changed |= ui.selectable_value(&mut self.sort_by, "sessions".to_string(), "MOST SESSIONS").clicked();
+                        changed |= ui.selectable_value(&mut self.sort_by, "score".to_string(), "HIGHEST SCORE").clicked();
                         if changed {
                             self.update_filtered();
                         }
@@ -705,69 +738,75 @@ impl VpnGateApp {
         let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 1.0), egui::Sense::hover());
         ui.painter().rect_filled(rect, 0.0, self.theme.c_border_hairline);
 
-        // 2. Swiss Virtualized Data Table
+        // 2. Swiss Virtualized Data Table with 14px Left Margin Gutter
         let available_height = ui.available_height() - 4.0;
         let num_rows = self.filtered_servers.len();
 
-        ui.push_id("relays_matrix_view", |ui| {
-            TableBuilder::new(ui)
-                .striped(true)
-                .resizable(false)
-                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                .column(Column::exact(220.0)) // LOCATION / IP ADDRESS
-                .column(Column::exact(65.0))  // PROTO
-                .column(Column::exact(110.0)) // BANDWIDTH
-                .column(Column::exact(85.0))  // LATENCY
-                .column(Column::remainder())  // SESSIONS
-                .min_scrolled_height(available_height)
-                .header(24.0, |mut header| {
-                    header.col(|ui| { ui.label(RichText::new("LOCATION / IP ADDRESS").size(9.5).monospace().color(self.theme.c_text_muted)); });
-                    header.col(|ui| { ui.label(RichText::new("PROTO").size(9.5).monospace().color(self.theme.c_text_muted)); });
-                    header.col(|ui| { ui.label(RichText::new("BANDWIDTH").size(9.5).monospace().color(self.theme.c_text_muted)); });
-                    header.col(|ui| { ui.label(RichText::new("LATENCY").size(9.5).monospace().color(self.theme.c_text_muted)); });
-                    header.col(|ui| { ui.label(RichText::new("SESSIONS").size(9.5).monospace().color(self.theme.c_text_muted)); });
-                })
-                .body(|body| {
-                    body.rows(28.0, num_rows, |mut row| {
-                        let idx = row.index();
-                        if let Some(server) = self.filtered_servers.get(idx).cloned() {
-                            let is_selected = self.selected_server.as_ref().map_or(false, |s| s.ip == server.ip);
+        ui.horizontal(|ui| {
+            ui.add_space(14.0); // 14px left padding so columns never touch the sidebar divider!
+            ui.vertical(|ui| {
+                ui.push_id("relays_matrix_view", |ui| {
+                    TableBuilder::new(ui)
+                        .striped(true)
+                        .resizable(false)
+                        .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                        .column(Column::exact(220.0)) // LOCATION / IP ADDRESS
+                        .column(Column::exact(65.0))  // PROTO
+                        .column(Column::exact(110.0)) // BANDWIDTH
+                        .column(Column::exact(85.0))  // LATENCY
+                        .column(Column::remainder())  // SESSIONS
+                        .min_scrolled_height(available_height)
+                        .header(24.0, |mut header| {
+                            header.col(|ui| { ui.label(RichText::new("LOCATION / IP ADDRESS").size(9.5).monospace().color(self.theme.c_text_muted)); });
+                            header.col(|ui| { ui.label(RichText::new("PROTO").size(9.5).monospace().color(self.theme.c_text_muted)); });
+                            header.col(|ui| { ui.label(RichText::new("BANDWIDTH").size(9.5).monospace().color(self.theme.c_text_muted)); });
+                            header.col(|ui| { ui.label(RichText::new("LATENCY").size(9.5).monospace().color(self.theme.c_text_muted)); });
+                            header.col(|ui| { ui.label(RichText::new("SESSIONS").size(9.5).monospace().color(self.theme.c_text_muted)); });
+                        })
+                        .body(|body| {
+                            body.rows(28.0, num_rows, |mut row| {
+                                let idx = row.index();
+                                if let Some(server) = self.filtered_servers.get(idx).cloned() {
+                                    let is_selected = self.selected_server.as_ref().map_or(false, |s| s.ip == server.ip);
 
-                            row.col(|ui| {
-                                let label = format!("{} {}", server.flag(), server.country_long);
-                                let resp = ui.selectable_label(is_selected, label);
-                                if resp.clicked() {
-                                    self.selected_server = Some(server.clone());
+                                    row.col(|ui| {
+                                        let label = format!("{} {}", server.flag(), server.country_long);
+                                        let resp = ui.selectable_label(is_selected, label);
+                                        if resp.clicked() {
+                                            self.selected_server = Some(server.clone());
+                                        }
+                                        if resp.double_clicked() {
+                                            self.selected_server = Some(server.clone());
+                                            if self.is_admin {
+                                                let _ = self.openvpn.connect(&server);
+                                            } else {
+                                                self.elevation_prompt_open = true;
+                                            }
+                                        }
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(RichText::new(&server.proto).monospace().size(10.0).color(self.theme.c_text_secondary));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(RichText::new(format!("{:.1} Mbps", server.speed_mbps)).monospace().size(11.0).strong().color(self.theme.c_text_primary));
+                                    });
+                                    row.col(|ui| {
+                                        let ping_color = match server.ping {
+                                            0..=60 => self.theme.c_text_primary,
+                                            61..=150 => self.theme.c_text_secondary,
+                                            _ => self.theme.c_text_muted,
+                                        };
+                                        ui.label(RichText::new(format!("{} ms", server.ping)).monospace().size(11.0).color(ping_color));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(RichText::new(format!("{} users", server.num_sessions)).monospace().size(10.0).color(self.theme.c_text_muted));
+                                    });
                                 }
-                                if resp.double_clicked() {
-                                    self.selected_server = Some(server.clone());
-                                    if self.is_admin {
-                                        let _ = self.openvpn.connect(&server);
-                                    } else {
-                                        self.elevation_prompt_open = true;
-                                    }
-                                }
                             });
-                            row.col(|ui| {
-                                ui.label(RichText::new(&server.proto).monospace().size(10.0).color(self.theme.c_text_secondary));
-                            });
-                            row.col(|ui| {
-                                ui.label(RichText::new(format!("{:.1} Mbps", server.speed_mbps)).monospace().size(11.0).strong().color(self.theme.c_text_primary));
-                            });
-                            row.col(|ui| {
-                                let ping_color = match server.ping {
-                                    0..=60 => self.theme.c_text_primary,
-                                    61..=150 => self.theme.c_text_secondary,
-                                    _ => self.theme.c_text_muted,
-                                };
-                                ui.label(RichText::new(format!("{} ms", server.ping)).monospace().size(11.0).color(ping_color));
-                            });
-                            row.col(|ui| {
-                                ui.label(RichText::new(format!("{} users", server.num_sessions)).monospace().size(10.0).color(self.theme.c_text_muted));
-                            });
-                        }
-                    });
+                        });
                 });
+            });
+            ui.add_space(14.0); // 14px right gutter
         });
     }
 
@@ -827,4 +866,41 @@ impl VpnGateApp {
                     });
             });
     }
+}
+
+/// Helper function to paint a deterministic, left-aligned, zero-stroke region row.
+/// Prevents layout jitter completely and avoids default blue selection highlight!
+fn render_region_row(ui: &mut egui::Ui, text: &str, is_selected: bool, theme: &Theme) -> bool {
+    let desired_width = ui.available_width();
+    let (rect, resp) = ui.allocate_exact_size(Vec2::new(desired_width, 24.0), egui::Sense::click());
+    
+    let is_hovered = resp.hovered();
+    let bg_color = if is_selected {
+        theme.c_primary_btn_bg // Pure White
+    } else if is_hovered {
+        theme.c_bg_hover // Subtle dark #171717
+    } else {
+        Color32::TRANSPARENT
+    };
+
+    ui.painter().rect_filled(rect, CornerRadius::same(theme.config.button_radius), bg_color);
+
+    let text_color = if is_selected {
+        theme.c_primary_btn_fg // Pure Black
+    } else if is_hovered {
+        theme.c_text_primary // Pure White
+    } else {
+        theme.c_text_secondary // Neutral #A3A3A3
+    };
+
+    // Crisp left-aligned text with 8px margin from the left edge
+    let galley = ui.painter().layout_no_wrap(
+        text.to_string(),
+        egui::FontId::monospace(10.5),
+        text_color,
+    );
+    let text_pos = egui::pos2(rect.min.x + 8.0, rect.center().y - galley.size().y * 0.5);
+    ui.painter().galley(text_pos, galley, text_color);
+
+    resp.clicked()
 }
