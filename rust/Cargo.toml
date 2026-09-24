@@ -1,0 +1,22 @@
+[package]
+name = "vpngate"
+version = "2.0.0"
+edition = "2021"
+description = "Ultra-lightweight minimalist native VPN Gate client for Windows"
+
+[dependencies]
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow"] }
+egui_extras = { version = "0.31" }
+ureq = { version = "2.12", features = ["tls"] }
+base64 = "0.22"
+csv = "1.4"
+rfd = "0.15"
+arboard = "3.6"
+windows-sys = { version = "0.59", features = ["Win32_UI_Shell", "Win32_Security", "Win32_System_Threading", "Win32_System_ProcessStatus"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
