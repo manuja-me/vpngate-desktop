@@ -10,6 +10,7 @@ on:
         description: 'Release Tag Name (e.g. v2.0.0)'
         required: false
         default: 'v2.0.0'
+        type: string
 
 permissions:
   contents: write
@@ -39,7 +40,7 @@ jobs:
         id: prepare
         shell: pwsh
         run: |
-          $ver = if ("${{ github.event.inputs.tag_name }}") { "${{ github.event.inputs.tag_name }}" } else { "${{ github.ref_name }}" }
+          $ver = if ("${{ inputs.tag_name }}") { "${{ inputs.tag_name }}" } else { "${{ github.ref_name }}" }
           if (-not $ver -or $ver -eq "main") { $ver = "v2.0.0" }
           
           # Create output staging directory
@@ -67,12 +68,13 @@ jobs:
           # 3. Generate SHA256 Checksums
           $hashExe = (Get-FileHash -Path "release_pkg\VpnGate.exe" -Algorithm SHA256).Hash
           $hashZip = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
+          $leafName = Split-Path $zipPath -Leaf
           
-          $checksumContent = @"
-$hashExe  VpnGate.exe
-$hashZip  $(Split-Path $zipPath -Leaf)
-"@
-          Set-Content -Path "release_pkg\sha256sums.txt" -Value $checksumContent
+          $checksumLines = @(
+            "$hashExe  VpnGate.exe",
+            "$hashZip  $leafName"
+          )
+          Set-Content -Path "release_pkg\sha256sums.txt" -Value $checksumLines
           
           echo "tag=$ver" >> $env:GITHUB_OUTPUT
           echo "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
