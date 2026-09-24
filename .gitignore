@@ -12,8 +12,10 @@
 # Logs
 *.log
 
-# Cache files
+# Cache and WebView2 User Data
 .vpngate_cache.json
+*.WebView2/
+*.WebView2
 
 # IDE / OS metadata
 .idea/
