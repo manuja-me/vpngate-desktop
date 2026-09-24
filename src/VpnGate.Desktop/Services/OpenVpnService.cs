@@ -109,9 +109,26 @@ namespace VpnGate.Desktop.Services
                         {
                             continue;
                         }
+                        // Strip any pre-existing routing or leak-related directives to avoid duplicates
+                        if (trimmed.StartsWith("redirect-gateway", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("block-outside-dns", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("block-ipv6", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("dhcp-option DNS", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
                         sb.AppendLine(line);
                     }
                 }
+
+                // Injected directives to guarantee full system traffic routing and DNS/IPv6 leak prevention
+                sb.AppendLine();
+                sb.AppendLine("# === Forced Gateway Redirection & Leak Protection ===");
+                sb.AppendLine("redirect-gateway def1 bypass-dhcp");
+                sb.AppendLine("dhcp-option DNS 8.8.8.8");
+                sb.AppendLine("dhcp-option DNS 1.1.1.1");
+                sb.AppendLine("block-outside-dns");
+                sb.AppendLine("block-ipv6");
 
                 await File.WriteAllTextAsync(configPath, sb.ToString());
 
@@ -119,7 +136,7 @@ namespace VpnGate.Desktop.Services
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = openvpnExe,
-                    Arguments = "--config profile.ovpn --auth-user-pass auth.txt --verb 3",
+                    Arguments = "--config profile.ovpn --auth-user-pass auth.txt --redirect-gateway \"def1 bypass-dhcp\" --verb 3",
                     WorkingDirectory = _activeTempDir,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -184,6 +201,12 @@ namespace VpnGate.Desktop.Services
                      line.Contains("Connection refused", StringComparison.OrdinalIgnoreCase))
             {
                 SetState(VpnState.Error, "Server unreachable. Try another relay.");
+            }
+            else if (line.Contains("route addition failed", StringComparison.OrdinalIgnoreCase) ||
+                     line.Contains("requires elevation", StringComparison.OrdinalIgnoreCase) ||
+                     line.Contains("ERROR: Windows route add", StringComparison.OrdinalIgnoreCase))
+            {
+                Log("⚠️ [Routing Warning] System route modification failed: Administrator rights required to redirect default gateway.");
             }
         }
 
@@ -271,7 +294,35 @@ namespace VpnGate.Desktop.Services
                              $"# Credentials: Username='vpn', Password='vpn'\n" +
                              $"# ========================================================\n\n";
 
-                File.WriteAllText(destinationPath, header + cfg, Encoding.UTF8);
+                var sb = new StringBuilder();
+                sb.Append(header);
+
+                using (var reader = new StringReader(cfg))
+                {
+                    string? line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var trimmed = line.Trim();
+                        if (trimmed.StartsWith("redirect-gateway", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("block-outside-dns", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("block-ipv6", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("dhcp-option DNS", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+                        sb.AppendLine(line);
+                    }
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("# === Forced Gateway Redirection & Leak Protection ===");
+                sb.AppendLine("redirect-gateway def1 bypass-dhcp");
+                sb.AppendLine("dhcp-option DNS 8.8.8.8");
+                sb.AppendLine("dhcp-option DNS 1.1.1.1");
+                sb.AppendLine("block-outside-dns");
+                sb.AppendLine("block-ipv6");
+
+                File.WriteAllText(destinationPath, sb.ToString(), Encoding.UTF8);
                 return true;
             }
             catch

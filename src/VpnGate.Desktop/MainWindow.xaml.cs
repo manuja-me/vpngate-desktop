@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Security.Principal;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -67,9 +69,10 @@ namespace VpnGate.Desktop
 
         private void UpdateEngineStatus()
         {
+            var isAdmin = IsRunningAsAdmin();
             if (_openVpnService.IsEngineInstalled)
             {
-                TxtEngineStatus.Text = "READY";
+                TxtEngineStatus.Text = isAdmin ? "READY • ELEVATED" : "READY (NON-ADMIN)";
                 TxtEngineIcon.Text = "●";
                 TxtEngineIcon.Foreground = Brushes.White;
                 BtnInstallEngine.Visibility = Visibility.Collapsed;
@@ -232,6 +235,21 @@ namespace VpnGate.Desktop
             {
                 if (_selectedServer == null) return;
 
+                if (!IsRunningAsAdmin())
+                {
+                    var res = MessageBox.Show(
+                        "Windows requires Administrator permissions to update routing tables and redirect your internet gateway to the VPN relay.\n\nWithout elevation, OpenVPN cannot modify the default route and your real IP will remain visible.\n\nWould you like to restart the application as Administrator now?",
+                        "Administrator Rights Required",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
+
+                    if (res == MessageBoxResult.Yes)
+                    {
+                        RestartAsAdmin();
+                    }
+                    return;
+                }
+
                 if (!_openVpnService.IsEngineInstalled)
                 {
                     var res = MessageBox.Show(
@@ -248,6 +266,43 @@ namespace VpnGate.Desktop
                 }
 
                 await _openVpnService.ConnectAsync(_selectedServer);
+            }
+        }
+
+        private static bool IsRunningAsAdmin()
+        {
+            try
+            {
+                using var identity = WindowsIdentity.GetCurrent();
+                var principal = new WindowsPrincipal(identity);
+                return principal.IsInRole(WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void RestartAsAdmin()
+        {
+            try
+            {
+                var exePath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = exePath,
+                        UseShellExecute = true,
+                        Verb = "runas"
+                    };
+                    Process.Start(psi);
+                    Application.Current.Shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not elevate application: {ex.Message}", "Elevation Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
