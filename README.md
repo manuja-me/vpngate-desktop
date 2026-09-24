@@ -5,6 +5,7 @@
 [![UI Engine](https://img.shields.io/badge/UI-WebView2%20%2B%20Swiss%20Monochrome-000000?logo=html5&logoColor=white)](https://github.com/manuja-me/vpngate-desktop)
 [![Binary Size](https://img.shields.io/badge/Binary-2.6%20MB%20Standalone-success)](dist/VpnGate.exe)
 [![Memory](https://img.shields.io/badge/RAM-~35--45%20MB-blue)](dist/VpnGate.exe)
+[![GitHub Release](https://img.shields.io/github/v/release/manuja-me/vpngate-desktop?logo=github&color=success)](https://github.com/manuja-me/vpngate-desktop/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **VPN Gate Studio** is an ultra-lightweight, high-performance Windows desktop client designed to browse, filter, benchmark, and connect to thousands of free, public relay servers worldwide provided by the **VPN Gate Academic Experiment Project (University of Tsukuba, Japan)**.
@@ -102,11 +103,13 @@ When you launch the app, you may notice the **`USER MODE • CLICK TO ELEVATE`**
 
 ## 🚀 Getting Started
 
-### 📦 Precompiled Standalone Executable (Fastest)
+### 📦 Download Standalone Executable (Fastest)
 
-1. Download or clone this repository.
-2. Ensure [OpenVPN for Windows](https://openvpn.net/community-downloads/) is installed (or run `install_openvpn.bat`).
-3. Run **[`dist\VpnGate.exe`](dist/VpnGate.exe)** directly.
+Download the standalone package directly from **[GitHub Releases](https://github.com/manuja-me/vpngate-desktop/releases/latest)**:
+* **`VpnGate.exe`**: 100% standalone single executable (MSVC build with statically linked WebView2).
+* **`VpnGate-v2.0.0-Windows-x64.zip`**: Complete portable bundle containing the executable, silent OpenVPN installer script, and documentation.
+
+Or run the local binary in [`dist\VpnGate.exe`](dist/VpnGate.exe).
 
 ### 🛠️ Build from Source
 
@@ -148,6 +151,8 @@ A virtual network adapter (TAP-Windows6 or Wintun) is required to tunnel Windows
 
 ```
 vpngate-desktop/
+├── .github/workflows/             # Automated CI/CD
+│   └── release.yml                # Standalone Windows package release pipeline
 ├── dist/                          # Production distribution
 │   ├── VpnGate.exe                # Standalone native executable (2.62 MB)
 │   └── WebView2Loader.dll         # Official Microsoft WebView2 loader (165 KB)
@@ -165,6 +170,7 @@ vpngate-desktop/
 ├── Cargo.toml                     # Rust package manifest & dependencies
 ├── Cargo.lock                     # Locked dependency tree
 ├── install_openvpn.bat            # 1-Click silent automated OpenVPN installer
+├── LICENSE                        # MIT License
 ├── .gitignore                     # Git ignore rules
 └── README.md                      # Project documentation
 ```
