@@ -7,66 +7,106 @@
 [![Memory](https://img.shields.io/badge/RAM-~35--45%20MB-blue)](dist/VpnGate.exe)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An ultra-lightweight, high-performance Windows desktop application to browse, filter, benchmark, and connect to thousands of free, public relay servers worldwide provided by the **VPN Gate Academic Experiment Project (University of Tsukuba, Japan)**.
+**VPN Gate Studio** is an ultra-lightweight, high-performance Windows desktop client designed to browse, filter, benchmark, and connect to thousands of free, public relay servers worldwide provided by the **VPN Gate Academic Experiment Project (University of Tsukuba, Japan)**.
 
-Built in **Rust** with an evergreen **WebView2** frontend, featuring a pure **Swiss Minimalist Monochrome** aesthetic, 100% stable retained DOM layout (zero hover jitter), and robust native OpenVPN route orchestration.
-
----
-
-## 🎯 Purpose of This App
-
-The primary goal of **VPN Gate Studio** is to bring the power of the worldwide academic VPN Gate network to Windows users through a sleek, fast, one-click desktop client.
-
-### 1. 🌐 Free, Account-Free Privacy & Anonymity
-* **Zero Subscriptions or Logins:** Connect to thousands of public volunteer-run relay servers across Japan, South Korea, the United States, Europe, and more at zero cost.
-* **Encrypted Tunneling:** Routes all system traffic through secure OpenVPN tunnels, concealing your true IP address and protecting your connection on unsecured public Wi-Fi networks.
-
-### 2. 🧱 Censorship & Firewall Resistance
-* Commercial VPN services rely on static data-center IP blocks that are easily targeted and banned by government firewalls (such as the Great Firewall) or campus/workplace filters.
-* Because VPN Gate relays are hosted dynamically by volunteers on residential and university connections, **their IP addresses are decentralized and constantly shifting**, making them exceptionally resistant to centralized blocking.
-
-### 3. ⚡ Eliminating the Friction of Manual Setup
-Traditionally, using VPN Gate requires either:
-* Running the outdated, legacy 2000s-era SoftEther client, or
-* Manually hunting down, downloading, and importing individual `.ovpn` configuration files into OpenVPN.
-
-**VPN Gate Studio solves this completely:** It continuously fetches online relays, runs latency and bandwidth metrics, automatically resolves configuration parameters, and connects with a single click.
+Engineered in **Rust** with an evergreen **WebView2** frontend, it pairs a pure **Swiss Minimalist Monochrome** aesthetic with robust OpenVPN route orchestration, 100% stable retained DOM layout (zero hover jitter), and an ultra-low working set (~35–45 MB RAM).
 
 ---
 
-## ✨ Key Features
+## ⚡ How This Differs From Others
 
-- **Ultra-Lightweight & Fast:** 
-  - **2.62 MB standalone `.exe`** with zero external DLLs, Node.js, or .NET runtimes.
-  - **~35–45 MB total RAM footprint** (75% lighter than WPF, 80% lighter than Electron).
-  - Sub-50ms instant startup from local cache (`%LOCALAPPDATA%\VpnGateDesktop\cache.csv`).
-- **Swiss Minimalist Monochrome UI:**
-  - High-contrast, typography-driven black & white design inspired by Swiss international style.
-  - Crisp monospace telemetry (`Cascadia Code`, `Consolas`).
-  - **100% Layout Stability:** Retained DOM flexbox/grid layout eliminates coordinate oscillation and hover vibration.
-- **Hero Connection Centerpiece:** Instant 1-click **Connect / Disconnect** button, dynamic state transitions, live duration stopwatch, and target relay summaries.
-- **Instant Search & Multi-Criteria Sorting:**
-  - Filter by Country, IP, Hostname, or Operator notes.
+Many VPN solutions and clients exist, but **VPN Gate Studio** occupies a distinct niche:
+
+| Feature / Dimension | 🏢 Commercial VPNs (Nord, Express, Surfshark) | 📜 Official SoftEther VPN Gate Plugin | 📁 Manual `.ovpn` Files + OpenVPN GUI | 🛡️ **VPN Gate Studio (This App)** |
+| :--- | :--- | :--- | :--- | :--- |
+| **Cost & Accounts** | Paid subscription ($5–$13/mo), requires email & credit card | Free, no account | Free, no account | **100% Free & Open-Source (FOSS), Zero Signups** |
+| **Server Infrastructure** | Centralized datacenter server farms | Decentralized volunteer residential/campus nodes | Decentralized volunteer residential/campus nodes | **Decentralized volunteer residential/campus nodes** |
+| **Censorship Evasion** | Datacenter IP ranges are easily identified and blocked by national firewalls (GFW) | Highly resistant to blocking due to residential IP churn | Highly resistant, but manual file hunting is slow | **Maximum: Auto-updated residential pool with 1-click connection** |
+| **Client Memory Footprint**| ~150–250 MB RAM + 24/7 background system services | ~40–60 MB RAM (outdated Win32 GUI) | ~15–25 MB (tray icon, no server browser) | **~35–45 MB RAM total, zero 24/7 background daemons** |
+| **Executable Size** | 80–150 MB installers | ~55 MB installer bundle | ~25 MB OpenVPN installer | **2.62 MB standalone executable** |
+| **User Interface** | Flashy marketing ads, upsells, complex account settings | 2000s-era Windows 98/XP dialogs, cluttered tables | None (right-click Windows system tray menu) | **Modern Swiss Minimalist Monochrome, live telemetry, zero jitter** |
+| **Route / Leak Protection**| Proprietary TAP drivers, often leaves DNS lingering | Basic SoftEther virtual adapter | Manual script hooks required | **Automated zombie route purge (`0.0.0.0/1`), DNS cache flush (`1.1.1.1`)** |
+
+---
+
+## 🎯 How This App Is Intended to Be Used
+
+VPN Gate Studio is purposefully designed for **practical, friction-free utility**:
+
+```
+[ Launch VpnGate.exe ] ──► [ Filter by Country or Speed ] ──► [ Click "CONNECT TO RELAY" ] ──► [ Traffic Secured ]
+```
+
+### ✅ Ideal Use Cases
+1. **Bypassing Government or Institutional Firewalls (Anti-Censorship):**
+   Commercial VPNs with static IP blocks are rapidly blacklisted by state-level Deep Packet Inspection (DPI). Because VPN Gate nodes are operated by volunteers on residential broadband and university networks, their IP addresses rotate constantly, making them exceptionally difficult to censor.
+2. **Instant Privacy on Public Wi-Fi:**
+   Connect to coffee shop, airport, or hotel Wi-Fi networks and secure all system traffic with a single click—without creating an account, handing over an email address, or logging in.
+3. **Geo-Unblocking for Research & Browsing:**
+   Access academic databases, local search indexes, or media restricted to regions like Japan, South Korea, the United States, or Europe.
+4. **Quick `.ovpn` Profile Exporting:**
+   Need an OpenVPN profile for your iPhone, Android, or OpenWRT router? Click **"EXPORT .OVPN PROFILE"** on any server row to save the raw decrypted config to disk.
+
+### ❌ What This App Is NOT Intended For
+* **High-Bandwidth Torrenting or P2P Sharing:** Servers are donated by volunteers and academic institutions. Consuming gigabytes of peer-to-peer torrent traffic exhausts volunteer bandwidth and violates University of Tsukuba fair-use guidelines.
+* **Malicious Activities or Attacks:** The University of Tsukuba maintains connection logs on relay servers to comply with Japanese academic network laws and prevent illegal activity.
+
+---
+
+## ⚖️ Pros & Cons
+
+### 🟢 Pros
+* **100% Free Forever:** No paywalls, trial periods, subscription prompts, or account registration.
+* **Ultra-Lightweight Footprint:** Single **2.62 MB** executable. Runs smoothly even on low-spec hardware and older laptops.
+* **No Background Clutter:** Leaves no persistent 24/7 services, telemetry agents, or startup daemons on your Windows machine when closed.
+* **Zero Hover Jitter / Retained DOM:** Powered by standard CSS flexbox/grid in WebView2—eliminates the annoying scrollbar oscillation and coordinate vibration common in immediate-mode frameworks (`egui`).
+* **Active Leak Protection:** Automatically cleans up zombie `/1` routing table entries upon exit or disconnect, and flushes the Windows DNS cache to prevent real IP leaks.
+* **Built-in Diagnostics Console:** Live streaming terminal with real-time OpenVPN handshake progress, routing updates, and prominent `[CONNECTED]` confirmation.
+
+### 🔴 Cons
+* **Variable Bandwidth & Latency:** Relay nodes are hosted by volunteers worldwide on home or campus connections. Speeds range from 5 Mbps to 150+ Mbps depending on the host's ISP and geographical distance.
+* **Server Churn:** Volunteer servers come online and go offline unpredictably. If a server disconnects, simply pick another from the refreshed matrix.
+* **Academic Logging Policy:** Relay nodes record connection timestamps and source IPs to mitigate network abuse per University of Tsukuba policy. While your traffic is encrypted over the wire, exit nodes are public.
+* **Requires OpenVPN & Administrator Privileges:** Windows network routing changes require UAC elevation (see explanation below).
+
+---
+
+## 🔐 Why Are Administrator Privileges Needed?
+
+When you launch the app, you may notice the **`USER MODE • CLICK TO ELEVATE`** badge or a Windows UAC prompt.
+
+### What Admin Privileges Provide:
+1. **System-Wide Traffic Redirection:** Windows strictly prevents unprivileged programs from altering the system routing table. Admin elevation allows OpenVPN to inject `0.0.0.0/1` and `128.0.0.0/1` routes so all PC internet traffic routes through the encrypted tunnel. Without elevation, your traffic bypasses the VPN (real IP leak).
+2. **TAP/Wintun Driver Acquisition:** Accessing the virtual network adapter driver (`\\.\Global\{GUID}.tap`) requires administrative device permissions.
+3. **DNS Leak Prevention:** Allows the client to flush the Windows DNS cache (`ipconfig /flushdns`) and set secure fallback resolvers (`1.1.1.1` and `8.8.8.8`).
+4. **Clean Disconnect & Route Recovery:** Ensures temporary routing entries are purged when you disconnect, preventing the common *"no internet after disconnecting"* bug.
+
+> [!NOTE]
+> Unlike commercial VPNs that install a permanent background service running 24/7 as `NT AUTHORITY\SYSTEM`, VPN Gate Studio is completely portable. It only requests elevation when active and leaves zero lingering services when closed.
+
+---
+
+## ✨ Features
+
+- **Swiss Minimalist Monochrome UI:** Typography-driven black-and-white theme featuring `Cascadia Code` and `Consolas` monospace telemetry.
+- **Hero Connection Centerpiece:** Instant 1-click **Connect / Disconnect** button, dynamic state transitions, live duration stopwatch, and selected node summary.
+- **Search & Multi-Criteria Sorting:**
+  - Search across Country, IP, Hostname, or Operator notes.
   - Sort on demand by **Highest Speed (Mbps)**, **Lowest Latency (ms)**, **Most Active Sessions**, or **Score**.
-  - One-click geographic region filter pills showing live server distribution by country.
-- **Native OpenVPN Route & DNS Leak Protection:**
-  - Dynamic local TCP management socket (`--management 127.0.0.1 <port>`) with graceful SIGTERM teardown.
-  - Automated zombie route cleanup (`route.exe delete 0.0.0.0 mask 128.0.0.0` and PowerShell route table reset).
-  - Automated DNS cache flushing (`ipconfig /flushdns`) on connect and disconnect.
-- **Live Diagnostics Console:** Real-time terminal tab showing OpenVPN handshake progress, routing changes, and diagnostic logs with one-click clipboard copying.
-- **One-Click `.ovpn` Exporter:** Export any node's raw OpenVPN profile to disk for use on routers, mobile phones, or other devices.
-- **100% Offline Capable:** All HTML, CSS, and JS assets are embedded directly into the binary with zero CDN dependencies.
+  - Geographic region filter pills (`ALL`, `JAPAN`, `KOREA`, `USA`, etc.) with server counts.
+- **Live Diagnostics Console:** Real-time terminal with syntax-highlighted logs, auto-scroll, and one-click clipboard copying.
+- **Sub-50ms Startup:** Automatically caches the relay directory to `%LOCALAPPDATA%\VpnGateDesktop\cache.csv` for instantaneous offline launch.
+- **100% Offline Capable:** HTML, CSS, and JS assets are embedded directly into the Rust binary with zero CDN dependencies.
 
 ---
 
 ## 🚀 Getting Started
 
-### 📦 Run the Precompiled Binary
-
-The standalone Windows executable is located in the [`dist/`](dist/) folder:
+### 📦 Precompiled Standalone Executable (Fastest)
 
 1. Download or clone this repository.
-2. Run **`dist\VpnGate.exe`**.
+2. Ensure [OpenVPN for Windows](https://openvpn.net/community-downloads/) is installed (or run `install_openvpn.bat`).
+3. Run **[`dist\VpnGate.exe`](dist/VpnGate.exe)** directly.
 
 ### 🛠️ Build from Source
 
@@ -87,21 +127,20 @@ cargo build --release
 # Output: target\release\vpngate.exe (2.6 MB)
 ```
 
+The build script [`build.rs`](build.rs) automatically deploys `WebView2Loader.dll` alongside the executable.
+
 ---
 
 ## ⚙️ OpenVPN Engine Setup
 
-To tunnel Windows system traffic, an OpenVPN executable and virtual network adapter (TAP or Wintun) are required.
+A virtual network adapter (TAP-Windows6 or Wintun) is required to tunnel Windows system traffic:
 
-* **1-Click Batch Script:** Double-click **`install_openvpn.bat`** in the repository root. It elevates with Windows UAC, downloads the official signed WiX MSI installer, and silently installs OpenVPN without prompts.
+* **1-Click Automated Batch Script:** Double-click **`install_openvpn.bat`** in the repository root. It elevates with Windows UAC, downloads the official signed WiX MSI installer, and silently installs OpenVPN.
 * **Windows Package Manager (Winget):**
   ```powershell
   winget install --id OpenVPNTechnologies.OpenVPN -e --accept-package-agreements --accept-source-agreements
   ```
 * **Manual Community Installer:** Download directly from [openvpn.net/community-downloads](https://openvpn.net/community-downloads/).
-
-> [!IMPORTANT]
-> **Administrator Privileges:** Redirecting Windows system network routing tables requires Administrator permissions. The app provides a one-click **USER MODE • CLICK TO ELEVATE** button on the header to restart with administrative privileges.
 
 ---
 
@@ -109,9 +148,10 @@ To tunnel Windows system traffic, an OpenVPN executable and virtual network adap
 
 ```
 vpngate-desktop/
-├── dist/                          # Production executable
-│   └── VpnGate.exe                # Standalone native executable (2.6 MB)
-├── src/                           # Rust backend core engine
+├── dist/                          # Production distribution
+│   ├── VpnGate.exe                # Standalone native executable (2.62 MB)
+│   └── WebView2Loader.dll         # Official Microsoft WebView2 loader (165 KB)
+├── src/                           # Native Rust backend core
 │   ├── main.rs                    # WRY/Tao window, event loop & IPC bridge
 │   ├── openvpn.rs                 # OpenVPN management socket, routes & DNS
 │   ├── vpngate.rs                 # VPNGate API client, CSV cache & parser
@@ -120,6 +160,8 @@ vpngate-desktop/
 │   ├── index.html                 # Semantic structure & layout
 │   ├── style.css                  # Pure CSS stylesheet (zero external CDN)
 │   └── app.js                     # IPC communication & state management
+├── assets/                        # Static binary dependencies (WebView2Loader.dll)
+├── build.rs                       # Automated DLL deployment build script
 ├── Cargo.toml                     # Rust package manifest & dependencies
 ├── Cargo.lock                     # Locked dependency tree
 ├── install_openvpn.bat            # 1-Click silent automated OpenVPN installer
@@ -131,9 +173,9 @@ vpngate-desktop/
 
 ## 🔒 Security & Privacy Notice
 
-* **Academic Volunteer Network:** VPN Gate servers are operated by volunteers as part of an academic experiment by the University of Tsukuba.
+* **Academic Research Network:** VPN Gate is operated by volunteers worldwide as part of an academic experiment by the University of Tsukuba, Japan.
 * **Authentication:** Default credentials for all VPN Gate servers are preconfigured as username `vpn` and password `vpn`.
-* **HTTPS Recommended:** While the tunnel between your PC and the relay server is strongly encrypted, exit traffic enters the public internet from the volunteer's host. Always verify that sensitive web connections use HTTPS/TLS.
+* **Always Use HTTPS:** While the tunnel between your computer and the relay server is strongly encrypted via TLS, traffic leaves the exit node onto the public internet from the volunteer's connection. Always verify sensitive web connections use HTTPS.
 
 ---
 
