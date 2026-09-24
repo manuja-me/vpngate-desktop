@@ -177,11 +177,25 @@ vpngate-desktop/
 
 ---
 
-## 🔒 Security & Privacy Notice
+## 🔒 Security & Trust Model
 
-* **Academic Research Network:** VPN Gate is operated by volunteers worldwide as part of an academic experiment by the University of Tsukuba, Japan.
-* **Authentication:** Default credentials for all VPN Gate servers are preconfigured as username `vpn` and password `vpn`.
-* **Always Use HTTPS:** While the tunnel between your computer and the relay server is strongly encrypted via TLS, traffic leaves the exit node onto the public internet from the volunteer's connection. Always verify sensitive web connections use HTTPS.
+### 1. Client-Side Security (Rust + WebView2)
+* **Memory Safety:** Core logic is implemented in safe Rust, eliminating buffer overflows, dangling pointers, and memory corruption bugs.
+* **Isolated Offline UI:** All frontend assets (HTML, CSS, JS) are embedded into the compiled binary. Zero remote CDNs or external web origins are loaded, eliminating XSS and supply-chain injection vectors.
+* **Zero Telemetry:** No user analytics, no tracking SDKs, no ads, and no cloud accounts. The only external API call is fetching the public relay list directly from `vpngate.net`.
+* **Leak Protection:** Enforces trusted DNS resolvers (`1.1.1.1`, `8.8.8.8`), blocks IPv6 traffic (`block-ipv6`), flushes the Windows DNS cache on connect, and purges `/1` routing entries on exit.
+
+### 2. Network Trust Model (Volunteer Relays)
+* **End-to-End Encryption:** Traffic between your PC and the relay server is encrypted via OpenVPN/TLS.
+* **Volunteer Exit Nodes:** Relays are hosted by independent volunteers and universities worldwide:
+  * **HTTPS Traffic:** Fully secure. Relay operators cannot decrypt end-to-end TLS traffic (passwords, bank data, or chats).
+  * **Plain HTTP & Metadata:** The relay operator can see destination IPs, hostnames (SNI), and unencrypted HTTP traffic. Always ensure sensitive browsing uses HTTPS.
+* **Academic Logging Policy:** VPN Gate is designed for **censorship circumvention**, not criminal anonymity. The University of Tsukuba mandates anti-abuse logging (timestamps, source IP, packet volume) on all nodes.
+* **Self-Signed Certificates:** Relay nodes generate self-signed certificates via SoftEther. OpenVPN displays an expected certificate verification warning since there is no central commercial CA.
+
+### 3. Local OS & Process Isolation
+* **Administrator Elevation:** Required strictly for modifying Windows routing tables (`0.0.0.0/1`) and binding the virtual network adapter. The app leaves no persistent 24/7 background services.
+* **Management Socket:** The OpenVPN management interface is bound strictly to `127.0.0.1` on a randomized ephemeral port, unreachable from external networks.
 
 ---
 
