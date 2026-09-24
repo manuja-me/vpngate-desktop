@@ -286,9 +286,10 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Text = "CONNECTED";
                         TxtStatusBadge.Foreground = Brushes.White;
                         BtnConnect.Content = "■ DISCONNECT FROM RELAY";
-                        BtnConnect.Background = Brushes.Black;
-                        BtnConnect.Foreground = Brushes.White;
-                        BtnConnect.BorderBrush = Brushes.White;
+                        BtnConnect.ClearValue(BackgroundProperty);
+                        BtnConnect.ClearValue(ForegroundProperty);
+                        BtnConnect.ClearValue(BorderBrushProperty);
+                        try { BtnConnect.Style = (Style)FindResource("DisconnectBtn"); } catch { }
                         BtnConnect.IsEnabled = true;
                         break;
 
@@ -317,9 +318,10 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Text = "ERROR";
                         TxtStatusBadge.Foreground = Brushes.White;
                         BtnConnect.Content = "⚡ RETRY CONNECT";
-                        BtnConnect.Background = Brushes.White;
-                        BtnConnect.Foreground = Brushes.Black;
-                        BtnConnect.BorderBrush = Brushes.White;
+                        BtnConnect.ClearValue(BackgroundProperty);
+                        BtnConnect.ClearValue(ForegroundProperty);
+                        BtnConnect.ClearValue(BorderBrushProperty);
+                        try { BtnConnect.Style = (Style)FindResource("PrimaryBtn"); } catch { }
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
 
@@ -331,9 +333,10 @@ namespace VpnGate.Desktop
                         TxtStatusBadge.Text = "DISCONNECTED";
                         TxtStatusBadge.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#A3A3A3"));
                         BtnConnect.Content = "⚡ CONNECT TO RELAY";
-                        BtnConnect.Background = Brushes.White;
-                        BtnConnect.Foreground = Brushes.Black;
-                        BtnConnect.BorderBrush = Brushes.White;
+                        BtnConnect.ClearValue(BackgroundProperty);
+                        BtnConnect.ClearValue(ForegroundProperty);
+                        BtnConnect.ClearValue(BorderBrushProperty);
+                        try { BtnConnect.Style = (Style)FindResource("PrimaryBtn"); } catch { }
                         BtnConnect.IsEnabled = _selectedServer != null;
                         break;
                 }
