@@ -70,7 +70,10 @@ impl OpenVpnManager {
             "OpenVPN executable not found. Please install OpenVPN.".to_string()
         })?;
 
-        // 1. Purge any leftover zombie routes
+        // 1. Kill any zombie openvpn processes to free the TAP adapter
+        kill_orphan_openvpn_processes();
+
+        // 2. Purge any leftover zombie routes
         purge_stale_routes();
 
         // 2. Decode configuration
@@ -293,6 +296,7 @@ impl OpenVpnManager {
 
         // 3. Purge any stale /1 routes from routing table
         purge_stale_routes();
+        kill_orphan_openvpn_processes();
 
         // 4. Clean temp directory
         let mut td = self.active_temp_dir.lock().unwrap();
@@ -444,6 +448,14 @@ pub fn flush_dns() {
         .args(["/flushdns"])
         .creation_flags(CREATE_NO_WINDOW)
         .status();
+}
+
+pub fn kill_orphan_openvpn_processes() {
+    let _ = Command::new("taskkill")
+        .args(["/F", "/IM", "openvpn.exe", "/T"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status();
+    thread::sleep(Duration::from_millis(100));
 }
 
 fn get_available_port() -> u16 {

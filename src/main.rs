@@ -327,6 +327,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 let _ = exit_openvpn.disconnect();
                 openvpn::purge_stale_routes();
+                openvpn::kill_orphan_openvpn_processes();
                 openvpn::flush_dns();
                 *control_flow = ControlFlow::Exit;
             }
