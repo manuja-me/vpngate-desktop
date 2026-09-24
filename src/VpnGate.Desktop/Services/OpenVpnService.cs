@@ -1,7 +1,9 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using VpnGate.Desktop.Models;
@@ -29,6 +31,7 @@ namespace VpnGate.Desktop.Services
 
         private Process? _process;
         private string? _activeTempDir;
+        private int _managementPort;
 
         public VpnState State { get; private set; } = VpnState.Disconnected;
         public VpnServer? CurrentServer { get; private set; }
@@ -127,11 +130,16 @@ namespace VpnGate.Desktop.Services
 
                 await File.WriteAllTextAsync(configPath, sb.ToString());
 
+                // Purge any stale zombie routes before establishing new tunnel
+                PurgeStaleRoutes();
+
+                _managementPort = GetAvailablePort();
+
                 // Launch OpenVPN in working directory with relative paths (completely avoids backslash issues)
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = openvpnExe,
-                    Arguments = "--config profile.ovpn --auth-user-pass auth.txt --verb 3",
+                    Arguments = $"--config profile.ovpn --auth-user-pass auth.txt --management 127.0.0.1 {_managementPort} --verb 3",
                     WorkingDirectory = _activeTempDir,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -167,7 +175,7 @@ namespace VpnGate.Desktop.Services
                     Cleanup();
                 };
 
-                Log($"Spawning OpenVPN engine: {openvpnExe} ...");
+                Log($"Spawning OpenVPN engine (mgmt port {_managementPort}): {openvpnExe} ...");
                 _process.Start();
                 _process.BeginOutputReadLine();
                 _process.BeginErrorReadLine();
@@ -187,6 +195,7 @@ namespace VpnGate.Desktop.Services
             {
                 SetState(VpnState.Connected);
                 Log(">>> Tunnel Established! Internet traffic is now routed through VPN Gate.");
+                Task.Run(() => FlushDns());
             }
             else if (line.Contains("AUTH_FAILED", StringComparison.OrdinalIgnoreCase))
             {
@@ -216,15 +225,37 @@ namespace VpnGate.Desktop.Services
             {
                 if (_process != null && !_process.HasExited)
                 {
-                    // Force terminate process tree
-                    var killProc = Process.Start(new ProcessStartInfo
+                    // 1. Send graceful shutdown command via Management Interface to let OpenVPN remove its routes
+                    if (_managementPort > 0)
                     {
-                        FileName = "taskkill",
-                        Arguments = $"/F /PID {_process.Id} /T",
-                        CreateNoWindow = true,
-                        UseShellExecute = false
-                    });
-                    killProc?.WaitForExit(3000);
+                        try
+                        {
+                            using var client = new TcpClient();
+                            var connectTask = client.ConnectAsync("127.0.0.1", _managementPort);
+                            if (Task.WhenAny(connectTask, Task.Delay(1000)).Result == connectTask && client.Connected)
+                            {
+                                using var stream = client.GetStream();
+                                using var writer = new StreamWriter(stream) { AutoFlush = true };
+                                writer.WriteLine("signal SIGTERM");
+                                Log("Sent graceful termination signal to OpenVPN engine.");
+                            }
+                        }
+                        catch { }
+                    }
+
+                    // 2. Wait up to 3 seconds for OpenVPN to finish its cleanup and route removal
+                    if (!_process.WaitForExit(3000))
+                    {
+                        Log("OpenVPN did not exit in 3s; terminating process tree...");
+                        var killProc = Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "taskkill",
+                            Arguments = $"/F /PID {_process.Id} /T",
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        });
+                        killProc?.WaitForExit(2000);
+                    }
                 }
             }
             catch (Exception ex)
@@ -232,9 +263,90 @@ namespace VpnGate.Desktop.Services
                 Log($"Notice while stopping process: {ex.Message}");
             }
 
+            // 3. Purge any stale /1 routes as a failsafe sweep
+            PurgeStaleRoutes();
+
             Cleanup();
             SetState(VpnState.Disconnected);
-            Log("VPN Disconnected.");
+            Log("VPN Disconnected. System default gateway restored.");
+        }
+
+        private static int GetAvailablePort()
+        {
+            try
+            {
+                using var listener = new TcpListener(IPAddress.Loopback, 0);
+                listener.Start();
+                int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+                listener.Stop();
+                return port;
+            }
+            catch
+            {
+                return 25340;
+            }
+        }
+
+        public static void PurgeStaleRoutes()
+        {
+            try
+            {
+                // Clear any stacked 0.0.0.0/1 and 128.0.0.0/1 routes from dead/killed sessions
+                for (int i = 0; i < 8; i++)
+                {
+                    using var p1 = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "route.exe",
+                        Arguments = "delete 0.0.0.0 mask 128.0.0.0",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    });
+                    p1?.WaitForExit(400);
+                    if (p1?.ExitCode != 0) break;
+                }
+
+                for (int i = 0; i < 8; i++)
+                {
+                    using var p2 = Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "route.exe",
+                        Arguments = "delete 128.0.0.0 mask 128.0.0.0",
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    });
+                    p2?.WaitForExit(400);
+                    if (p2?.ExitCode != 0) break;
+                }
+
+                // PowerShell NetRoute cleanup as a comprehensive fallback
+                using var psProc = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoProfile -NonInteractive -Command \"Remove-NetRoute -DestinationPrefix '0.0.0.0/1' -Confirm:$false -ErrorAction SilentlyContinue; Remove-NetRoute -DestinationPrefix '128.0.0.0/1' -Confirm:$false -ErrorAction SilentlyContinue\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                psProc?.WaitForExit(1500);
+
+                FlushDns();
+            }
+            catch { }
+        }
+
+        private static void FlushDns()
+        {
+            try
+            {
+                using var pDns = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "ipconfig.exe",
+                    Arguments = "/flushdns",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                pDns?.WaitForExit(1000);
+            }
+            catch { }
         }
 
         public async Task<bool> InstallEngineAsync(Action<string> statusCallback)

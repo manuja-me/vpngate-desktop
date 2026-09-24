@@ -48,6 +48,9 @@ namespace VpnGate.Desktop
             {
                 UpdateEngineStatus();
 
+                // Clean up any lingering zombie routes from prior ungraceful terminations
+                _ = Task.Run(() => OpenVpnService.PurgeStaleRoutes());
+
                 // Instantly load cached servers in <20ms for instant UI rendering
                 _allServers = _vpnService.LoadCachedServers();
                 if (_allServers.Count > 0)
