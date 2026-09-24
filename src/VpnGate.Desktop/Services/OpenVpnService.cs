@@ -109,11 +109,8 @@ namespace VpnGate.Desktop.Services
                         {
                             continue;
                         }
-                        // Strip any pre-existing routing or leak-related directives to avoid duplicates
-                        if (trimmed.StartsWith("redirect-gateway", StringComparison.OrdinalIgnoreCase) ||
-                            trimmed.StartsWith("block-outside-dns", StringComparison.OrdinalIgnoreCase) ||
-                            trimmed.StartsWith("block-ipv6", StringComparison.OrdinalIgnoreCase) ||
-                            trimmed.StartsWith("dhcp-option DNS", StringComparison.OrdinalIgnoreCase))
+                        // Strip any pre-existing directives that could fail or cause conflicts
+                        if (trimmed.StartsWith("block-outside-dns", StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
                         }
@@ -121,13 +118,11 @@ namespace VpnGate.Desktop.Services
                     }
                 }
 
-                // Injected directives to guarantee full system traffic routing and DNS/IPv6 leak prevention
+                // Injected directives to guarantee DNS fallback and IPv6 leak prevention
                 sb.AppendLine();
-                sb.AppendLine("# === Forced Gateway Redirection & Leak Protection ===");
-                sb.AppendLine("redirect-gateway def1 bypass-dhcp");
+                sb.AppendLine("# === Leak Protection & Resolvers ===");
                 sb.AppendLine("dhcp-option DNS 8.8.8.8");
                 sb.AppendLine("dhcp-option DNS 1.1.1.1");
-                sb.AppendLine("block-outside-dns");
                 sb.AppendLine("block-ipv6");
 
                 await File.WriteAllTextAsync(configPath, sb.ToString());
@@ -136,7 +131,7 @@ namespace VpnGate.Desktop.Services
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = openvpnExe,
-                    Arguments = "--config profile.ovpn --auth-user-pass auth.txt --redirect-gateway \"def1 bypass-dhcp\" --verb 3",
+                    Arguments = "--config profile.ovpn --auth-user-pass auth.txt --verb 3",
                     WorkingDirectory = _activeTempDir,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -303,10 +298,7 @@ namespace VpnGate.Desktop.Services
                     while ((line = reader.ReadLine()) != null)
                     {
                         var trimmed = line.Trim();
-                        if (trimmed.StartsWith("redirect-gateway", StringComparison.OrdinalIgnoreCase) ||
-                            trimmed.StartsWith("block-outside-dns", StringComparison.OrdinalIgnoreCase) ||
-                            trimmed.StartsWith("block-ipv6", StringComparison.OrdinalIgnoreCase) ||
-                            trimmed.StartsWith("dhcp-option DNS", StringComparison.OrdinalIgnoreCase))
+                        if (trimmed.StartsWith("block-outside-dns", StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
                         }
@@ -315,11 +307,9 @@ namespace VpnGate.Desktop.Services
                 }
 
                 sb.AppendLine();
-                sb.AppendLine("# === Forced Gateway Redirection & Leak Protection ===");
-                sb.AppendLine("redirect-gateway def1 bypass-dhcp");
+                sb.AppendLine("# === Leak Protection & Resolvers ===");
                 sb.AppendLine("dhcp-option DNS 8.8.8.8");
                 sb.AppendLine("dhcp-option DNS 1.1.1.1");
-                sb.AppendLine("block-outside-dns");
                 sb.AppendLine("block-ipv6");
 
                 File.WriteAllText(destinationPath, sb.ToString(), Encoding.UTF8);
