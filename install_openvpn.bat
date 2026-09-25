@@ -28,7 +28,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$proc = Start-Process msiexec.exe -ArgumentList '/i', ('\"' + $dest + '\"'), '/quiet', '/norestart' -PassThru -Wait;" ^
     "Remove-Item $dest -Force -ErrorAction SilentlyContinue;" ^
     "if ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 3010) {" ^
-    "    Write-Host '[3/3] Installation completed successfully!' -ForegroundColor Green;" ^
+    "    Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'OpenVPN-GUI' -ErrorAction SilentlyContinue;" ^
+    "    Remove-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'OpenVPN-GUI' -ErrorAction SilentlyContinue;" ^
+    "    Stop-Process -Name 'openvpn-gui' -Force -ErrorAction SilentlyContinue;" ^
+    "    Write-Host '[3/3] Installation completed successfully! (Startup GUI disabled)' -ForegroundColor Green;" ^
     "} else {" ^
     "    Write-Host ('Installation exited with code: ' + $proc.ExitCode) -ForegroundColor Yellow;" ^
     "}"
